@@ -22,21 +22,22 @@ var Util = {
 };
 
 var Alias = function (map, $el) {
-    function alias(map, $root, obj, fullSel) {
-        map = map || {};
-        if (Util.isString(map)) {
-            map = {
-                alias: map
-            };
-        }
+    var ifJoinAlias = !!map.join;
+    var aliasSeparator = '/';
 
-        fullSel = fullSel || '';
+    function isKeyword(w) {
+        return w === 'alias' || w === 'lazy' || w === 'join';
+    }
 
-        if (!map.alias) {
-            map.alias = 'a_' + Date.now();
-        }
+    function alias(map, $root, obj, fullSel, fullAlias) {
+        map         = Util.isString(map) ? { alias: map } : (Util.isObject(map) ? map : {});
+        $root       = $root || window.document.body;
+        obj         = obj || { __root: $root };
+        fullSel     = fullSel || [];
+        fullAlias   = fullAlias || [];
 
         function querySelector($parent, sel) {
+            if (!sel) return $parent;
             var $targets = Array.prototype.slice.call($parent.querySelectorAll(sel));
             if ($targets.length < 1) {
                 return null;
@@ -47,52 +48,54 @@ var Alias = function (map, $el) {
             }
         }
 
-        if (map.lazy) {
-            Object.defineProperty(obj, map.alias, {
-                get: function () {
-                    return fullSel ? querySelector(this.__root, fullSel) : this.__root;
-                }
-            });
-        } else {
-            obj[map.alias] = fullSel ? querySelector($root, fullSel) : $root;
+        if (map.alias) {
+            fullAlias = fullAlias.concat(map.alias);
+            var aliasProperty = ifJoinAlias ? fullAlias.join(aliasSeparator) : map.alias;
+            if (map.lazy) {
+                Object.defineProperty(obj, aliasProperty, {
+                    get: function () {
+                        return querySelector(this.__root, fullSel.join(' '));
+                    }
+                });
+            } else {
+                obj[aliasProperty] = querySelector($root, fullSel.join(' '));
+            }
         }
 
         Util.each(map, function (v, sel) {
-            if (sel === 'alias' || sel === 'lazy') return;
-            alias(v, $root, obj, fullSel ? (fullSel + ' ' + sel) : sel);
+            if (isKeyword(sel)) return;
+            alias(v,
+                $root,
+                obj,
+                fullSel.concat(sel),
+                fullAlias
+            );
         });
 
         return obj;
     }
 
-    inherit_lazy_property: {
-        function lazyDown(map) {
-            if (!Util.isObject(map)) return;
-            if (map.lazy) {
-                Util.each(map, function (v, p) {
-                    if (p === 'alias' || p === 'lazy') return;
-                    if (Util.isString(v)) {
-                        map[p] = {
-                            alias: v,
-                            lazy: true
-                        };
-                    } else if (Util.isObject(v)) {
-                        v.lazy = true;
-                    }
-                });
-            }
-            Util.each(map, lazyDown);
+    function lazyDown(map) {
+        if (!Util.isObject(map)) return;
+        if (map.lazy) {
+            Util.each(map, function (v, p) {
+                if (isKeyword(p)) return;
+                if (Util.isString(v)) {
+                    map[p] = {
+                        alias: v,
+                        lazy: true
+                    };
+                } else if (Util.isObject(v)) {
+                    v.lazy = true;
+                }
+            });
         }
-        lazyDown(map);
+        Util.each(map, lazyDown);
     }
 
-    $el = $el || window.document.body;
+    lazyDown(map);
 
-    var obj = {
-        __root: $el
-    };
-
-    return alias(map, $el, obj);
+    return alias(map, $el);
 };
 
 var bind = function ($el, data) {
