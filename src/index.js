@@ -1,10 +1,13 @@
-var db = function ($el) {};
-
+/**
+ * Utilities.
+ * @type {Object}
+ */
 var Util = {
     isString: function (v) { return typeof v === 'string'; },
     isFunction: function (v) { return typeof v === 'function'; },
     isObject: function (v) { return Object.prototype.toString.call(v) === '[object Object]'; },
     isArray: function (v) { return Object.prototype.toString.call(v) === '[object Array]'; },
+    isAlias: function (v) { return v instanceof Alias; },
     each: function (v, func) {
         if (Util.isObject(v)) {
             for (var p in v) {
@@ -21,7 +24,14 @@ var Util = {
     }
 };
 
-var Alias = function (map, $el) {
+/**
+ * Alias DOM.
+ * @param  {Object|String} map              Selector-alias map.
+ * @param  {HTMLElement|Undefined} $el      Root element.
+ * @param  {Boolean|Undefined} $notInClass  Whether as a function or class.
+ * @return {Object}                         Result table.
+ */
+var Alias = function (map, $el, notInClass) {
     var ifJoinAlias = !!map.join;
     var aliasSeparator = '/';
 
@@ -32,7 +42,8 @@ var Alias = function (map, $el) {
     function alias(map, $root, obj, fullSel, fullAlias) {
         map         = Util.isString(map) ? { alias: map } : (Util.isObject(map) ? map : {});
         $root       = $root || window.document.body;
-        obj         = obj || { __root: $root };
+        obj         = obj || {};
+        if (!obj.__root) obj.__root = $root;
         fullSel     = fullSel || [];
         fullAlias   = fullAlias || [];
 
@@ -95,16 +106,26 @@ var Alias = function (map, $el) {
 
     lazyDown(map);
 
-    return alias(map, $el);
+    if (notInClass) return alias(map, $el);
+    else alias(map, $el, this);
 };
 
-var bind = function ($el, data) {
-    ensure_dom_attributes: {
-
-    }
+/**
+ * Bind data to DOM.
+ * @param  {Object} ref             [description]
+ * @param  {HTMLElement|Alias} $el  [description]
+ * @param  {Object} relation        [description]
+ * @return {[type]}                 [description]
+ */
+var Bind = function (ref, $el, relation) {
+    if (!Util.isObject(relation)) return false;
+    Util.each(relation, function (v, p) {
+        // TODO
+    });
 };
 
 module.exports = {
+    util: Util,
     alias: Alias,
-    bind: bind
+    bind: Bind
 };
