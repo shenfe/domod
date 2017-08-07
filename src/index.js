@@ -9,6 +9,8 @@ var rand_803763970 = (function () {
         isObject: function (v) { return Object.prototype.toString.call(v) === '[object Object]'; },
         isArray: function (v) { return Object.prototype.toString.call(v) === '[object Array]'; },
         isAlias: function (v) { return v instanceof AliasDOM; },
+        isNode: function (v) { return v instanceof Node; },
+        isNamedNodeMap: function (v) { return v instanceof NamedNodeMap; },
         each: function (v, func) {
             if (Util.isObject(v)) {
                 for (var p in v) {
@@ -18,7 +20,31 @@ var rand_803763970 = (function () {
                 }
             } else if (Util.isArray(v)) {
                 for (var i = 0, len = v.length; i < len; i++) {
-                    var r = func(v[i]);
+                    var r = func(v[i], i);
+                    if (r === false) break;
+                }
+            } else if (Util.isNode(v)) {
+                switch (v.nodeType) {
+                    case Node.ELEMENT_NODE:
+                        break;
+                    case Node.TEXT_NODE:
+                        break;
+                    case Node.COMMENT_NODE:
+                        break;
+                    case Node.PROCESSING_INSTRUCTION_NODE:
+                    case Node.DOCUMENT_NODE:
+                    case Node.DOCUMENT_TYPE_NODE:
+                    case Node.DOCUMENT_FRAGMENT_NODE:
+                        break;
+                    default:
+
+                }
+                for (var i = 0, childNodes = v.childNodes, len = v.childNodes.length; i < len; i++) {
+                    Util.each(childNodes[i], func);
+                }
+            } else if (Util.isNamedNodeMap(v)) {
+                for (var i = 0, len = v.length; i < len; i++) {
+                    var r = func(v[i]['nodeValue'], v[i]['nodeName']);
                     if (r === false) break;
                 }
             }
@@ -127,10 +153,15 @@ var rand_803763970 = (function () {
      * @return {[type]}                     [description]
      */
     var Bind = function (ref, $el, relation) {
-        if (!Util.isObject(relation)) return false;
-        Util.each(relation, function (v, p) {
-            // TODO
-        });
+        var mode = Util.isObject(relation) ? 'active' : 'passive';
+
+        if (mode === 'active') {
+            Util.each(relation, function (v, p) {
+                // TODO
+            });
+        } else {
+
+        }
     };
 
     return {
