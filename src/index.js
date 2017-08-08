@@ -1,4 +1,4 @@
-POLYFILL: {
+polyfill: {
     /**
      * Object.assign
      * @refer https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
@@ -218,9 +218,9 @@ var rand_803763970 = (function () {
     var DMD = function ($el, option) {
         this.$el = $el || window.document.body;
 
+        this.conf = {};
         conf: {
             if (!Util.isObject(option)) option = {};
-
             var defaultConf = {
                 attrPrefix: 'm-',
                 tmplEngine: {
@@ -231,9 +231,7 @@ var rand_803763970 = (function () {
                     textValueParser: function () {}
                 }
             };
-
-            this.conf = defaultConf;
-            Object.assign(this.conf, option);
+            Object.assign(this.conf, defaultConf, option);
         }
     };
     DMD.prototype.alias = function (map) {
