@@ -1,16 +1,66 @@
+POLYFILL: {
+    /**
+     * Object.assign
+     * @refer https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
+     */
+    if (typeof Object.assign !== 'function') {
+        // Must be writable: true, enumerable: false, configurable: true
+        Object.defineProperty(Object, 'assign', {
+            value: function assign(target, varArgs) { // .length of function is 2
+                'use strict';
+                if (target == null) { // TypeError if undefined or null
+                    throw new TypeError('Cannot convert undefined or null to object');
+                }
+
+                var to = Object(target);
+
+                for (var index = 1; index < arguments.length; index++) {
+                    var nextSource = arguments[index];
+
+                    if (nextSource != null) { // Skip over if undefined or null
+                        for (var nextKey in nextSource) {
+                            // Avoid bugs when hasOwnProperty is shadowed
+                            if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+                                to[nextKey] = nextSource[nextKey];
+                            }
+                        }
+                    }
+                }
+                return to;
+            },
+            writable: true,
+            configurable: true
+        });
+    }
+}
+
 var rand_803763970 = (function () {
     /**
      * Utilities.
      * @type {Object}
      */
     var Util = {
-        isString: function (v) { return typeof v === 'string'; },
-        isFunction: function (v) { return typeof v === 'function'; },
-        isObject: function (v) { return Object.prototype.toString.call(v) === '[object Object]'; },
-        isArray: function (v) { return Object.prototype.toString.call(v) === '[object Array]'; },
-        isAlias: function (v) { return v instanceof AliasDOM; },
-        isNode: function (v) { return v instanceof Node; },
-        isNamedNodeMap: function (v) { return v instanceof NamedNodeMap; },
+        isString: function (v) {
+            return typeof v === 'string';
+        },
+        isFunction: function (v) {
+            return typeof v === 'function';
+        },
+        isObject: function (v) {
+            return Object.prototype.toString.call(v) === '[object Object]';
+        },
+        isArray: function (v) {
+            return Object.prototype.toString.call(v) === '[object Array]';
+        },
+        isAlias: function (v) {
+            return v instanceof AliasDOM;
+        },
+        isNode: function (v) {
+            return v instanceof Node;
+        },
+        isNamedNodeMap: function (v) {
+            return v instanceof NamedNodeMap;
+        },
         each: function (v, func) {
             if (Util.isObject(v)) {
                 for (var p in v) {
@@ -30,7 +80,6 @@ var rand_803763970 = (function () {
                     case Node.TEXT_NODE:
                         break;
                     case Node.COMMENT_NODE:
-                        break;
                     case Node.PROCESSING_INSTRUCTION_NODE:
                     case Node.DOCUMENT_NODE:
                     case Node.DOCUMENT_TYPE_NODE:
@@ -66,12 +115,14 @@ var rand_803763970 = (function () {
         }
 
         function alias(map, $root, obj, fullSel, fullAlias) {
-            map         = Util.isString(map) ? { alias: map } : (Util.isObject(map) ? map : {});
-            $root       = $root || window.document.body;
-            obj         = obj || {};
+            map = Util.isString(map) ? {
+                alias: map
+            } : (Util.isObject(map) ? map : {});
+            $root = $root || window.document.body;
+            obj = obj || {};
             if (!obj.__root) obj.__root = $root;
-            fullSel     = fullSel || [];
-            fullAlias   = fullAlias || [];
+            fullSel = fullSel || [];
+            fullAlias = fullAlias || [];
 
             function querySelector($parent, sel) {
                 if (!sel) return $parent;
@@ -164,9 +215,22 @@ var rand_803763970 = (function () {
         }
     };
 
+    /**
+     * Configure.
+     * @param  {[type]} option Option.
+     * @return {[type]}        [description]
+     */
+    var Conf = function (option) {
+        option = Object.assign({
+            attrPrefix: 'm-',
+            tmplEngine: function (tmpl, ref) {}
+        }, option);
+    };
+
     return {
         util: Util,
         alias: Alias,
+        conf: Conf,
         bind: Bind
     };
 })();
