@@ -215,24 +215,40 @@ var rand_803763970 = (function () {
         }
     };
 
-    /**
-     * Configure.
-     * @param  {[type]} option Option.
-     * @return {[type]}        [description]
-     */
-    var Conf = function (option) {
-        option = Object.assign({
-            attrPrefix: 'm-',
-            tmplEngine: function (tmpl, ref) {}
-        }, option);
+    var DMD = function ($el, option) {
+        this.$el = $el || window.document.body;
+
+        conf: {
+            if (!Util.isObject(option)) option = {};
+
+            var defaultConf = {
+                attrPrefix: 'm-',
+                tmplEngine: {
+                    classParser: function () {},
+                    styleParser: function () {},
+                    eventParser: function () {},
+                    attrValueParser: function () {},
+                    textValueParser: function () {}
+                }
+            };
+
+            this.conf = defaultConf;
+            Object.assign(this.conf, option);
+        }
+    };
+    DMD.prototype.alias = function (map) {
+        return Alias(map, this.$el);
+    };
+    DMD.prototype.bind = function (ref, relation) {
+        return Bind(ref, this.$el, relation);
     };
 
-    return {
-        util: Util,
-        alias: Alias,
-        conf: Conf,
-        bind: Bind
+    var factory = function ($el, option) {
+        return new DMD($el, option);
     };
+    factory.alias = Alias;
+    factory.bind = Bind;
+    return factory;
 })();
 
 if (typeof exports !== 'undefined') {
@@ -240,5 +256,5 @@ if (typeof exports !== 'undefined') {
         exports = module.exports = rand_803763970;
     }
 } else {
-    window.domod = rand_803763970;
+    window.DMD = rand_803763970;
 }
