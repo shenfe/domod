@@ -65,6 +65,10 @@ var rand_803763970 = (function () {
             if (!Util.isString(v)) return false;
             return v.startsWith('on'); // TODO
         },
+        isCSSSelector: function (v) {
+            return v.indexOf(' ') > 0 || v.indexOf('.') >= 0
+                || v.indexOf('[') >= 0 || v.indexOf('#') >= 0;
+        },
         each: function (v, func) {
             if (Util.isObject(v)) {
                 for (var p in v) {
@@ -78,21 +82,22 @@ var rand_803763970 = (function () {
                     if (r === false) break;
                 }
             } else if (Util.isNode(v)) {
+                var ret = false;
                 switch (v.nodeType) {
                     case Node.ELEMENT_NODE:
                         break;
                     case Node.TEXT_NODE:
-                        break;
                     case Node.COMMENT_NODE:
                     case Node.PROCESSING_INSTRUCTION_NODE:
                     case Node.DOCUMENT_NODE:
                     case Node.DOCUMENT_TYPE_NODE:
                     case Node.DOCUMENT_FRAGMENT_NODE:
-                        break;
                     default:
-
+                        ret = true;
                 }
+                if (ret) return;
                 for (var i = 0, childNodes = v.childNodes, len = v.childNodes.length; i < len; i++) {
+                    func(childNodes[i]);
                     Util.each(childNodes[i], func);
                 }
             } else if (Util.isNamedNodeMap(v)) {
@@ -225,28 +230,48 @@ var rand_803763970 = (function () {
             return;
         }
 
+        if (!Util.isNode($el)) return;
+
         var mode = Util.isObject(relation) ? 'active' : 'passive';
 
         if (mode === 'active') {
             Util.each(relation, function (v, p) {
                 switch (p) {
-                    case 'className': /* Class */
-                    case 'style': /* Style */
+                    case 'innerHTML':
+                    case 'className':
+                    case 'style':
                         break;
                     default:
                         var pNum = parseInt(p);
                         if (!isNaN(pNum)) { /* Node Index */
-
-
                         } else if (Util.isEventName(p)) { /* Event */
-
+                        } else if (Util.isCSSSelector(p)) { /* CSS Selector */
                         } else { /* Attribute */
-
                         }
                 }
             });
         } else {
-
+            if ($el.nodeType === Node.ELEMENT_NODE) {
+                Util.each($el.attributes, function (value, name) {
+                    switch (name) {
+                        case 'innerHTML':
+                            break;
+                        case 'class':
+                            break;
+                        case 'style':
+                            break;
+                        default:
+                            if (Util.isEventName(name)) { /* Event */
+                            } else { /* Attribute */
+                            }
+                    }
+                });
+                Util.each($el, function (node) {
+                    Bind(ref, node);
+                });
+            } else if ($el.nodeType === Node.TEXT_NODE) {
+                // TODO
+            }
         }
     };
 
