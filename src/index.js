@@ -61,6 +61,10 @@ var rand_803763970 = (function () {
         isNamedNodeMap: function (v) {
             return v instanceof NamedNodeMap;
         },
+        isEventName: function (v) {
+            if (!Util.isString(v)) return false;
+            return v.startsWith('on'); // TODO
+        },
         each: function (v, func) {
             if (Util.isObject(v)) {
                 for (var p in v) {
@@ -120,7 +124,14 @@ var rand_803763970 = (function () {
             } : (Util.isObject(map) ? map : {});
             $root = $root || window.document.body;
             obj = obj || {};
-            if (!obj.__root) obj.__root = $root;
+            if (!obj.__root) {
+                Object.defineProperty(obj, '__root', {
+                    get: function () {
+                        return $root;
+                    },
+                    enumerable: false
+                });
+            }
             fullSel = fullSel || [];
             fullAlias = fullAlias || [];
 
@@ -143,7 +154,8 @@ var rand_803763970 = (function () {
                     Object.defineProperty(obj, aliasProperty, {
                         get: function () {
                             return querySelector(this.__root, fullSel.join(' '));
-                        }
+                        },
+                        enumerable: true
                     });
                 } else {
                     obj[aliasProperty] = querySelector($root, fullSel.join(' '));
@@ -202,13 +214,36 @@ var rand_803763970 = (function () {
      * @param  {HTMLElement|AliasDOM} $el   [description]
      * @param  {Object} relation            [description]
      * @return {[type]}                     [description]
+     * @note   如果有relation，则认为是active模式，否则是passive模式；active模式会主动去
+     *         遍历relation的属性进行绑定；passive模式会遍历$el的DOM属性
      */
     var Bind = function (ref, $el, relation) {
+        if (Util.isAlias($el)) {
+            Util.each($el, function (dom) {
+                Bind(ref, dom);
+            });
+            return;
+        }
+
         var mode = Util.isObject(relation) ? 'active' : 'passive';
 
         if (mode === 'active') {
             Util.each(relation, function (v, p) {
-                // TODO
+                switch (p) {
+                    case 'className': /* Class */
+                    case 'style': /* Style */
+                        break;
+                    default:
+                        var pNum = parseInt(p);
+                        if (!isNaN(pNum)) { /* Node Index */
+
+
+                        } else if (Util.isEventName(p)) { /* Event */
+
+                        } else { /* Attribute */
+
+                        }
+                }
             });
         } else {
 
