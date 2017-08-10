@@ -284,11 +284,6 @@ var rand_803763970 = (function () {
         }
     };
 
-    var DMDNames = {
-        realRefs: 'DMD_REAL_REFs',
-        darkRef: '__DMD_DARK_REF'
-    };
-
     var allocId = (function () {
         var n = 0;
         return function () {
@@ -317,26 +312,76 @@ var rand_803763970 = (function () {
         Util.extend(this.defaults, DefaultConf, option);
     };
 
-    DMD[DMDNames.realRefs] = {};
+    var DMDDefs = {
+        realRefs: 'DMD_REAL_REFs',
+        darkRef: '__DMD_DARK_REF',
+        refSeparator: '/'
+    };
+    var DMDRefSpace = {};
 
     /**
      * Bind an object data.
      * @param  {Object} data                [description]
+     * @param  {Boolean} force              [description]
      * @return {[type]}                     [description]
      */
-    var BindData = function (data) {
+    var BindData = function (data, force) {
         if (!Util.isObject(data)) return false;
-        if (data[DMDNames.darkRef] === undefined) {
-            var id = allocId();
-            Object.defineProperty(data, DMDNames.darkRef, {
-                get: function () {
-                    return id;
-                },
-                enumerable: false
+        if (data[DMDDefs.darkRef] !== undefined && !force) return;
+
+        var id = allocId();
+        Object.defineProperty(data, DMDDefs.darkRef, {
+            get: function () {
+                return id;
+            },
+            enumerable: false
+        });
+        DMDRefSpace[id] = {
+            data: data,
+            props: {},
+            paths: {}
+        };
+
+        var bindProps = function (node, obj) {
+            if (!Util.isObject(obj)) return;
+            node.props = {};
+            Util.each(obj, function (v, p) {
+                node.props[p] = {
+                    getters: [],
+                    setters: []
+                };
+                bindProps(node.props[p], v);
             });
-            DMD[DMDNames.realRefs][id] = data;
-        }
+        };
+        bindProps(DMDRefSpace[id], data);
+
+        var setGetterSetters = function (obj, node) {
+            Util.each(obj, function (v, p) {
+                delete obj[p];
+                Object.defineProperty(obj, p, {
+                    get: function () {
+                        return v;
+                    },
+                    set: function (_v) {
+                        v = _v;
+                        var execSetters = function (node, v, oldv) {
+                            Util.each(node.setters, function (setter) {
+                                setter(v, oldv);
+                            });
+                            Util.each(node.props, function (pv, pn) {
+                                execSetters(pv, v[pn], oldv[pn]);
+                            });
+                        };
+                        execSetters(node.props[p], v, _v);
+                    }
+                });
+                setGetterSetters(v, node.props[p]);
+            });
+        };
+        setGetterSetters(data, DMDRefSpace[id]);
     };
+
+    DMD[DMDDefs.realRefs] = DMDRefSpace;
 
     DMD.prototype.alias = function (map) {
         return Alias(map, this.$el);
