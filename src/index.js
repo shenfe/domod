@@ -1,38 +1,4 @@
-polyfill: {
-    /**
-     * Object.assign
-     * @refer https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
-     */
-    if (typeof Object.assign !== 'function') {
-        // Must be writable: true, enumerable: false, configurable: true
-        Object.defineProperty(Object, 'assign', {
-            value: function assign(target, varArgs) { // .length of function is 2
-                'use strict';
-                if (target == null) { // TypeError if undefined or null
-                    throw new TypeError('Cannot convert undefined or null to object');
-                }
-
-                var to = Object(target);
-
-                for (var index = 1; index < arguments.length; index++) {
-                    var nextSource = arguments[index];
-
-                    if (nextSource != null) { // Skip over if undefined or null
-                        for (var nextKey in nextSource) {
-                            // Avoid bugs when hasOwnProperty is shadowed
-                            if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
-                                to[nextKey] = nextSource[nextKey];
-                            }
-                        }
-                    }
-                }
-                return to;
-            },
-            writable: true,
-            configurable: true
-        });
-    }
-}
+polyfill: {}
 
 var rand_803763970 = (function () {
     /**
@@ -53,7 +19,7 @@ var rand_803763970 = (function () {
             return Object.prototype.toString.call(v) === '[object Array]';
         },
         isAlias: function (v) {
-            return v instanceof AliasDOM;
+            return typeof AliasDOM === 'function' && v instanceof AliasDOM;
         },
         isNode: function (v) {
             return v instanceof Node;
@@ -106,6 +72,39 @@ var rand_803763970 = (function () {
                     if (r === false) break;
                 }
             }
+        },
+        clone: function (val) {
+            var r = val;
+            if (Util.isObject(val)) {
+                r = {};
+                Util.each(val, function (v, p) {
+                    r[p] = Util.clone(v);
+                });
+            } else if (Util.isArray(val)) {
+                r = [];
+                Util.each(val, function (v) {
+                    r.push(Util.clone(v));
+                });
+            }
+            return r;
+        },
+        extend: function (dest, srcs) {
+            if (!Util.isObject(dest)) return null;
+            var args = Array.prototype.slice.call(arguments, 1).reverse();
+            var extendObj = function (obj1, obj2) {
+                if (!Util.isObject(obj2)) return;
+                Util.each(obj2, function (v, p) {
+                    if (obj1[p] === undefined) {
+                        obj1[p] = Util.clone(v);
+                    }
+                });
+            };
+            var srcMap = {};
+            Util.each(args, function (src) {
+                extendObj(srcMap, src);
+            });
+            extendObj(dest, srcMap);
+            return dest;
         }
     };
 
@@ -223,6 +222,8 @@ var rand_803763970 = (function () {
      *         遍历relation的属性进行绑定；passive模式会遍历$el的DOM属性
      */
     var Bind = function (ref, $el, relation) {
+        var _this = this;
+
         if (Util.isAlias($el)) {
             Util.each($el, function (dom) {
                 Bind(ref, dom);
@@ -237,6 +238,8 @@ var rand_803763970 = (function () {
         if (mode === 'active') {
             Util.each(relation, function (v, p) {
                 switch (p) {
+                    case 'show':
+                    case 'innerText':
                     case 'innerHTML':
                     case 'className':
                     case 'style':
@@ -253,8 +256,14 @@ var rand_803763970 = (function () {
         } else {
             if ($el.nodeType === Node.ELEMENT_NODE) {
                 Util.each($el.attributes, function (value, name) {
+                    if (!name.startsWith(_this.attrPrefix)) return;
+                    name = name.substr(_this.attrPrefix.length);
                     switch (name) {
-                        case 'innerHTML':
+                        case 'show':
+                            break;
+                        case 'text':
+                            break;
+                        case 'html':
                             break;
                         case 'class':
                             break;
@@ -275,37 +284,75 @@ var rand_803763970 = (function () {
         }
     };
 
+    var DMDNames = {
+        realRefs: 'DMD_REAL_REFs',
+        darkRef: '__DMD_DARK_REF'
+    };
+
+    var allocId = (function () {
+        var n = 0;
+        return function () {
+            return n++;
+        };
+    })();
+
+    var DefaultConf = {
+        attrPrefix: 'm-',
+        tmplEngine: {
+            parseDeps: function (tmpl) {
+
+            },
+            classParser: function () {},
+            styleParser: function () {},
+            eventParser: function () {},
+            attrValueParser: function () {},
+            textValueParser: function () {}
+        }
+    };
+
     var DMD = function ($el, option) {
         this.$el = $el || window.document.body;
 
-        this.conf = {};
-        conf: {
-            if (!Util.isObject(option)) option = {};
-            var defaultConf = {
-                attrPrefix: 'm-',
-                tmplEngine: {
-                    classParser: function () {},
-                    styleParser: function () {},
-                    eventParser: function () {},
-                    attrValueParser: function () {},
-                    textValueParser: function () {}
-                }
-            };
-            Object.assign(this.conf, defaultConf, option);
+        this.defaults = {};
+        Util.extend(this.defaults, DefaultConf, option);
+    };
+
+    DMD[DMDNames.realRefs] = {};
+
+    /**
+     * Bind an object data.
+     * @param  {Object} data                [description]
+     * @return {[type]}                     [description]
+     */
+    var BindData = function (data) {
+        if (!Util.isObject(data)) return false;
+        if (data[DMDNames.darkRef] === undefined) {
+            var id = allocId();
+            Object.defineProperty(data, DMDNames.darkRef, {
+                get: function () {
+                    return id;
+                },
+                enumerable: false
+            });
+            DMD[DMDNames.realRefs][id] = data;
         }
     };
+
     DMD.prototype.alias = function (map) {
         return Alias(map, this.$el);
     };
     DMD.prototype.bind = function (ref, relation) {
+        BindData(ref);
         return Bind(ref, this.$el, relation);
     };
 
     var factory = function ($el, option) {
         return new DMD($el, option);
     };
+    factory.defaults = Util.clone(DefaultConf);
     factory.alias = Alias;
     factory.bind = Bind;
+    factory.data = BindData;
     return factory;
 })();
 
