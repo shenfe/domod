@@ -6,6 +6,14 @@ var rand_803763970 = (function () {
      * @type {Object}
      */
     var Util = {
+        isNumber: function (v) {
+            return typeof v === 'number';
+        },
+        isNumeric: function (v) {
+            var n = parseInt(v);
+            if (isNaN(n)) return false;
+            return (typeof v === 'number' || typeof v === 'string') && n == v;
+        },
         isString: function (v) {
             return typeof v === 'string';
         },
@@ -17,6 +25,13 @@ var rand_803763970 = (function () {
         },
         isArray: function (v) {
             return Object.prototype.toString.call(v) === '[object Array]';
+        },
+        isBasic: function (v) {
+            return v == null
+                || typeof v === 'boolean'
+                || typeof v === 'number'
+                || typeof v === 'string'
+                || typeof v === 'function';
         },
         isAlias: function (v) {
             return typeof AliasDOM === 'function' && v instanceof AliasDOM;
@@ -35,7 +50,7 @@ var rand_803763970 = (function () {
             return v.indexOf(' ') > 0 || v.indexOf('.') >= 0
                 || v.indexOf('[') >= 0 || v.indexOf('#') >= 0;
         },
-        each: function (v, func) {
+        each: function (v, func, arrayReverse) {
             if (Util.isObject(v)) {
                 for (var p in v) {
                     if (!v.hasOwnProperty(p)) continue;
@@ -43,9 +58,16 @@ var rand_803763970 = (function () {
                     if (r === false) break;
                 }
             } else if (Util.isArray(v)) {
-                for (var i = 0, len = v.length; i < len; i++) {
-                    var r = func(v[i], i);
-                    if (r === false) break;
+                if (!arrayReverse) {
+                    for (var i = 0, len = v.length; i < len; i++) {
+                        var r = func(v[i], i);
+                        if (r === false) break;
+                    }
+                } else {
+                    for (var i = v.length - 1; i >= 0; i--) {
+                        var r = func(v[i], i);
+                        if (r === false) break;
+                    }
                 }
             } else if (Util.isNode(v)) {
                 var ret = false;
@@ -88,22 +110,78 @@ var rand_803763970 = (function () {
             }
             return r;
         },
-        extend: function (dest, srcs) {
+        hasProperty: function (val, p) {
+            if (Util.isObject(val)) {
+                return val.hasOwnProperty(p);
+            } else if (Util.isArray(val)) {
+                var n = parseInt(p);
+                return Util.isNumeric(p) && val.length > n && n >= 0;
+            }
+            return false;
+        },
+        clear: function (val, p) {
+            var inRef = Util.isString(p) || Util.isNumber(p);
+            var target = inRef ? val[p] : val;
+
+            if (Util.isObject(target) || Util.isArray(target)) {
+                Util.each(target, function (v, p) {
+                    Util.clear(target, p);
+                });
+                if (Util.isArray(target)) {
+                    Util.shrinkArray(target);
+                }
+            }
+
+            if (inRef) {
+                val[p] = undefined;
+            }
+        },
+        shrinkArray: function (arr, len) {
+            var limited = Util.isNumber(len);
+            if (!limited) {
+                Util.each(arr, function (v, i) {
+                    if (v === undefined) arr.length--;
+                }, true);
+            } else {
+                Util.each(arr, function (v, i) {
+                    if (i >= len) arr.length--;
+                    else return false;
+                }, true);
+                while (arr.length < len) {
+                    arr.push(null);
+                }
+            }
+            return arr;
+        },
+        extend: function (dest, srcs, clear) {
             if (!Util.isObject(dest)) return null;
-            var args = Array.prototype.slice.call(arguments, 1).reverse();
-            var extendObj = function (obj1, obj2) {
-                if (!Util.isObject(obj2)) return;
-                Util.each(obj2, function (v, p) {
-                    if (obj1[p] === undefined) {
-                        obj1[p] = Util.clone(v);
+            var args = Array.prototype.slice.call(arguments, 1,
+                arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
+
+            var extendObj = function (obj, src, clear) {
+                if (!Util.isObject(src)) return;
+                Util.each(src, function (v, p) {
+                    if (!Util.hasProperty(obj, p) || Util.isBasic(v)) {
+                        obj[p] = Util.clone(v);
+                    } else {
+                        extendObj(obj[p], v, clear);
                     }
                 });
+                if (clear) {
+                    Util.each(obj, function (v, p) {
+                        if (!Util.hasProperty(src, p)) {
+                            Util.clear(obj, p);
+                        }
+                    });
+                    if (Util.isArray(obj)) {
+                        Util.shrinkArray(obj);
+                    }
+                }
             };
-            var srcMap = {};
+
             Util.each(args, function (src) {
-                extendObj(srcMap, src);
+                extendObj(dest, src, clear);
             });
-            extendObj(dest, srcMap);
             return dest;
         }
     };
@@ -347,7 +425,6 @@ var rand_803763970 = (function () {
             node.props = {};
             Util.each(obj, function (v, p) {
                 node.props[p] = {
-                    getters: [],
                     setters: []
                 };
                 bindProps(node.props[p], v);
@@ -355,7 +432,7 @@ var rand_803763970 = (function () {
         };
         bindProps(DMDRefSpace[id], data);
 
-        var setGetterSetters = function (obj, node) {
+        var setSetters = function (obj, node) {
             Util.each(obj, function (v, p) {
                 delete obj[p];
                 Object.defineProperty(obj, p, {
@@ -363,22 +440,33 @@ var rand_803763970 = (function () {
                         return v;
                     },
                     set: function (_v) {
-                        v = _v;
+                        if (Util.isBasic(v)) {
+                            v = _v;
+                        } else {
+                            if (Util.isBasic(_v)) {
+                                Util.clear(obj, p);
+                                v = _v;
+                            } else {
+                                Util.extend(v, _v, true);
+                            }
+                        }
+
                         var execSetters = function (node, v, oldv) {
                             Util.each(node.setters, function (setter) {
                                 setter(v, oldv);
                             });
-                            Util.each(node.props, function (pv, pn) {
-                                execSetters(pv, v[pn], oldv[pn]);
-                            });
+                            // Util.each(node.props, function (pv, pn) {
+                            //     execSetters(pv, v[pn], oldv[pn]);
+                            // });
                         };
                         execSetters(node.props[p], v, _v);
-                    }
+                    },
+                    enumerable: true
                 });
-                setGetterSetters(v, node.props[p]);
+                setSetters(v, node.props[p]);
             });
         };
-        setGetterSetters(data, DMDRefSpace[id]);
+        setSetters(data, DMDRefSpace[id]);
     };
 
     DMD[DMDDefs.realRefs] = DMDRefSpace;
