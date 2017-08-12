@@ -43,6 +43,10 @@ var isInstance = function (v, creator) {
     return typeof creator === 'function' && v instanceof creator;
 };
 
+var isDirectInstance = function (v, creator) {
+    return v.constructor === creator;
+};
+
 var isNode = function (v) {
     return v instanceof Node;
 };
@@ -213,6 +217,7 @@ export {
     isArray,
     isBasic,
     isInstance,
+    isDirectInstance,
     isNode,
     isNamedNodeMap,
     isEventName,

@@ -1,5 +1,7 @@
 import * as Util from './Util'
 
+var canUseProxy = typeof Proxy === 'function';
+
 var OArray = function (arr, option) {
     if (!Util.isArray(arr)) arr = [];
     if (!Util.isObject(option)) option = {};
@@ -54,7 +56,7 @@ var OArray = function (arr, option) {
     });
 };
 
-OArray.prototype = new Array;
+OArray.prototype = [];
 OArray.prototype.constructor = OArray;
 
 OArray.prototype.assignElement = function (i, v) {
@@ -78,13 +80,14 @@ OArray.prototype.deleteElement = function (i) {
 };
 
 OArray.prototype.push = function (v) {
-    this.assignElement(this.length, v);
+    this.assignElement(this.__length, v);
     this.__length++;
     return this.__length;
 };
 
 OArray.prototype.pop = function (v) {
-    this.length--;
+    this.deleteElement(this.__length - 1);
+    this.__length--;
     return this.__length;
 };
 
@@ -102,16 +105,36 @@ OArray.prototype.shift = function (v) {
     return this.__length;
 };
 
-OArray.prototype.reverse = function (v) {};
+OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
+    if (!Util.isNumber(startIndex) || !Util.isNumber(howManyToDelete)) return [];
+    if (startIndex < 0 || startIndex >= this.__length) return [];
+    if (howManyToDelete < 0) howManyToDelete = 0;
+    if (howManyToDelete + startIndex > this.__length) howManyToDelete = this.__length - startIndex;
+    var r = [];
+    for (var i = startIndex; i < startIndex + howManyToDelete; i++) {
+        r.push(Util.clone(this[i + this.__offset]));
+    }
 
-OArray.prototype.sort = function (v) {};
+    var itemsToInsert = Array.prototype.slice.call(arguments, 2);
+    // TODO: delete and insert
 
-OArray.prototype.concat = function (v) {};
+    return r;
+};
 
-OArray.prototype.slice = function (v) {};
+OArray.prototype.slice = function (startIndex, endIndex) {
+    if (!Util.isNumber(startIndex)) return [];
+    if (!Util.isNumber(endIndex)) endIndex = this.__length;
+    if (startIndex < 0 || endIndex > this.__length || startIndex >= endIndex) return [];
+    var r = [];
+    for (var i = startIndex; i < endIndex; i++) {
+        r.push(this[i + this.__offset]);
+    }
+    return r;
+};
 
-OArray.prototype.splice = function (v) {};
-
+OArray.prototype.concat = function (arr) {};
+OArray.prototype.reverse = function () {};
+OArray.prototype.sort = function (sortBy) {};
 OArray.prototype.forEach = function (fn) {};
 OArray.prototype.filter = function (fn) {};
 OArray.prototype.map = function (fn) {};

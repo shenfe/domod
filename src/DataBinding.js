@@ -1,4 +1,5 @@
 import * as Util from './Util'
+import OArray from './ObservableArray'
 
 /**
  * Bind an object data into a reference base.
@@ -19,8 +20,7 @@ var BindData = function (data, force, idPropertyName, refBase) {
     });
     refBase[id] = {
         data: data,
-        props: {},
-        paths: {}
+        props: {}
     };
 
     function bindProps(node, obj) {
@@ -33,7 +33,6 @@ var BindData = function (data, force, idPropertyName, refBase) {
             bindProps(node.props[p], v);
         });
     }
-
     bindProps(refBase[id], data);
 
     function setSetters(obj, node) {
@@ -44,6 +43,13 @@ var BindData = function (data, force, idPropertyName, refBase) {
                     return v;
                 },
                 set: function (_v) {
+                    function execSetters(node, newV, oldv) {
+                        Util.each(node.setters, function (setter) {
+                            setter(newV, oldv);
+                        });
+                    }
+                    execSetters(node.props[p], _v, v);
+
                     if (Util.isBasic(v)) {
                         v = _v;
                     } else {
@@ -54,23 +60,12 @@ var BindData = function (data, force, idPropertyName, refBase) {
                             Util.extend(v, _v, true);
                         }
                     }
-
-                    var execSetters = function (node, v, oldv) {
-                        Util.each(node.setters, function (setter) {
-                            setter(v, oldv);
-                        });
-                        // Util.each(node.props, function (pv, pn) {
-                        //     execSetters(pv, v[pn], oldv[pn]);
-                        // });
-                    };
-                    execSetters(node.props[p], v, _v);
                 },
                 enumerable: true
             });
             setSetters(v, node.props[p]);
         });
     }
-
     setSetters(data, refBase[id]);
 };
 
