@@ -104,6 +104,8 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
+    } else if (Util.isFunction(v.forEach)) {
+        v.forEach(func);
     }
 };
 

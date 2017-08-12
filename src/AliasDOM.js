@@ -22,9 +22,7 @@ var AliasDOM = function (map, $el) {
         obj = obj || {};
         if (!obj.__root) {
             Object.defineProperty(obj, '__root', {
-                get: function () {
-                    return $root;
-                },
+                value: $root,
                 enumerable: false
             });
         }
