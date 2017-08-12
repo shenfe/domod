@@ -14,9 +14,7 @@ var BindData = function (data, force, idPropertyName, refBase) {
 
     var id = Util.gid();
     Object.defineProperty(data, idPropertyName, {
-        get: function () {
-            return id;
-        },
+        value: id,
         enumerable: false
     });
     refBase[id] = {
@@ -25,7 +23,7 @@ var BindData = function (data, force, idPropertyName, refBase) {
         paths: {}
     };
 
-    var bindProps = function (node, obj) {
+    function bindProps(node, obj) {
         if (!Util.isObject(obj)) return;
         node.props = {};
         Util.each(obj, function (v, p) {
@@ -34,10 +32,11 @@ var BindData = function (data, force, idPropertyName, refBase) {
             };
             bindProps(node.props[p], v);
         });
-    };
+    }
+
     bindProps(refBase[id], data);
 
-    var setSetters = function (obj, node) {
+    function setSetters(obj, node) {
         Util.each(obj, function (v, p) {
             delete obj[p];
             Object.defineProperty(obj, p, {
@@ -70,7 +69,8 @@ var BindData = function (data, force, idPropertyName, refBase) {
             });
             setSetters(v, node.props[p]);
         });
-    };
+    }
+
     setSetters(data, refBase[id]);
 };
 

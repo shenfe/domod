@@ -174,7 +174,7 @@ var extend = function (dest, srcs, clean) {
     var args = Array.prototype.slice.call(arguments, 1,
         arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
 
-    var extendObj = function (obj, src, clean) {
+    function extendObj(obj, src, clean) {
         if (!isObject(src)) return;
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
@@ -193,7 +193,7 @@ var extend = function (dest, srcs, clean) {
                 shrinkArray(obj);
             }
         }
-    };
+    }
 
     each(args, function (src) {
         extendObj(dest, src, clean);
