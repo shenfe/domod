@@ -15,8 +15,7 @@ var BindData = function (data, force, idPropertyName, refBase) {
 
     var id = Util.gid();
     Object.defineProperty(data, idPropertyName, {
-        value: id,
-        enumerable: false
+        value: id
     });
     refBase[id] = {
         data: data,
@@ -25,19 +24,21 @@ var BindData = function (data, force, idPropertyName, refBase) {
 
     function bindProps(node, obj) {
         if (!Util.isObject(obj)) return;
-        node.props = {};
+        if (!node.props) node.props = {};
         Util.each(obj, function (v, p) {
-            node.props[p] = {
-                setters: []
-            };
+            if (!node.props[p]) {
+                node.props[p] = {
+                    setters: []
+                };
+            }
             bindProps(node.props[p], v);
         });
     }
     bindProps(refBase[id], data);
 
-    function setSetters(obj, node) {
+    function bindSetters(node, obj) {
         Util.each(obj, function (v, p) {
-            delete obj[p];
+            if (delete obj[p] === false) return;
             Object.defineProperty(obj, p, {
                 get: function () {
                     return v;
@@ -50,12 +51,14 @@ var BindData = function (data, force, idPropertyName, refBase) {
                     }
                     execSetters(node.props[p], _v, v);
 
-                    if (Util.isBasic(v)) {
-                        v = _v;
+                    if (Util.isBasic(_v)) {
+                        Util.clear(obj, p, _v);
                     } else {
-                        if (Util.isBasic(_v)) {
-                            Util.clear(obj, p);
+                        bindProps(node.props[p], _v);
+                        bindSetters(node.props[p], _v);
+                        if (Util.isBasic(v)) {
                             v = _v;
+                            Util.touchLeaves(v);
                         } else {
                             Util.extend(v, _v, true);
                         }
@@ -63,10 +66,10 @@ var BindData = function (data, force, idPropertyName, refBase) {
                 },
                 enumerable: true
             });
-            setSetters(v, node.props[p]);
+            bindSetters(node.props[p], v);
         });
     }
-    setSetters(data, refBase[id]);
+    bindSetters(refBase[id], data);
 };
 
 export default BindData

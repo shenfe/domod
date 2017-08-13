@@ -22,8 +22,7 @@ var AliasDOM = function (map, $el) {
         obj = obj || {};
         if (!obj.__root) {
             Object.defineProperty(obj, '__root', {
-                value: $root,
-                enumerable: false
+                value: $root
             });
         }
         fullSel = fullSel || [];

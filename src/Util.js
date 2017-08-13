@@ -139,7 +139,7 @@ var hasProperty = function (val, p) {
     return false;
 };
 
-var clear = function (val, p) {
+var clear = function (val, p, withBasicVal) {
     var inRef = isString(p) || isNumber(p);
     var target = inRef ? val[p] : val;
 
@@ -153,7 +153,7 @@ var clear = function (val, p) {
     }
 
     if (inRef) {
-        val[p] = undefined;
+        val[p] = withBasicVal;
     }
 };
 
@@ -173,6 +173,16 @@ var shrinkArray = function (arr, len) {
         }
     }
     return arr;
+};
+
+var touchLeaves = function (obj) {
+    each(obj, function (v, p) {
+        if (isBasic(v)) {
+            obj[p] = v;
+        } else {
+            touchLeaves(v);
+        }
+    });
 };
 
 var extend = function (dest, srcs, clean) {
@@ -227,5 +237,6 @@ export {
     hasProperty,
     clear,
     shrinkArray,
+    touchLeaves,
     extend
 }
