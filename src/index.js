@@ -1,6 +1,9 @@
 import * as Util from './Util'
 import { AliasDOM, Alias } from './AliasDOM'
-import BindDataToRefBase from './DataBinding'
+import BindData from './DataBinding'
+
+/* Initialize the reference space. */
+var DMDRefSpace = BindData();
 
 /**
  * Bind data to DOM.
@@ -11,7 +14,10 @@ import BindDataToRefBase from './DataBinding'
  * @note   如果有relation，则认为是active模式，否则是passive模式；active模式会主动去
  *         遍历relation的属性进行绑定；passive模式会遍历$el的DOM属性
  */
-var Bind = function (ref, $el, relation) {
+function Bind(ref, $el, relation) {
+    if (!Util.isObject(ref)) return;
+    BindData(ref);
+
     var _this = this;
 
     if (Util.isInstance($el, AliasDOM)) {
@@ -72,10 +78,15 @@ var Bind = function (ref, $el, relation) {
             // TODO
         }
     }
-};
+}
 
+/**
+ * Default configurations.
+ * @type {Object}
+ */
 var DefaultConf = {
     attrPrefix: 'm-',
+    refSeparator: '/',
     tmplEngine: {
         parseDeps: function (tmpl) {
 
@@ -88,43 +99,31 @@ var DefaultConf = {
     }
 };
 
-var DMD = function ($el, option) {
-    this.$el = $el || window.document.body;
+DMD_Constructor: {
+    var DMD = function ($el, option) {
+        this.$el = $el || window.document.body;
 
-    this.defaults = {};
-    Util.extend(this.defaults, DefaultConf, option);
-};
+        this.defaults = {};
+        Util.extend(this.defaults, DefaultConf, option);
+    };
 
-var DMDDefs = {
-    refSeparator: '/'
-};
+    DMD.prototype.alias = function (map) {
+        return Alias(map, this.$el);
+    };
 
-/**
- * Bind an object data.
- * @param  {Object} data                [description]
- * @param  {Boolean} force              [description]
- * @return {[type]}                     [description]
- */
-function BindData(data, force) {
-    return BindDataToRefBase(data, force);
+    DMD.prototype.bind = function (ref, relation) {
+        return Bind(ref, this.$el, relation);
+    };
 }
-var DMDRefSpace = BindData();
 
-DMD.prototype.alias = function (map) {
-    return Alias(map, this.$el);
-};
-
-DMD.prototype.bind = function (ref, relation) {
-    BindData(ref);
-    return Bind(ref, this.$el, relation);
-};
-
-var factory = function ($el, option) {
-    return new DMD($el, option);
-};
-factory.defaults = Util.clone(DefaultConf);
-factory.alias = Alias;
-factory.bind = Bind;
-factory.data = BindData;
+DMD_Factory: {
+    var factory = function ($el, option) {
+        return new DMD($el, option);
+    };
+    factory.defaults = Util.clone(DefaultConf);
+    factory.alias = Alias;
+    factory.data = BindData;
+    factory.bind = Bind;
+}
 
 export default factory
