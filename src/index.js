@@ -1,3 +1,4 @@
+import * from './Polyfill'
 import * as Util from './Util'
 import { AliasDOM, Alias } from './AliasDOM'
 import BindData from './DataBinding'
@@ -96,7 +97,7 @@ var DefaultConf = {
         eventParser: function () {},
         attrValueParser: function () {},
         textValueParser: function (tmpl, executor) {
-            return a.replace(/{([^{}]*)}/ig, function (match, p1, p2, p3, offset, string) {
+            return tmpl.replace(/{([^{}]*)}/ig, function (match, p1, offset, string) {
                 return executor(p1);
             });
         }
