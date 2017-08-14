@@ -2,27 +2,27 @@ import * as Util from './Util'
 import OArray from './ObservableArray'
 
 var idPropertyName = '__DMD_DARK_REF';
-var refBase = {};
+var refSpace = {};
 
 /**
- * Bind an object data into a reference base.
+ * Bind an object data into a reference space.
  * @param  {Object} data                [description]
  * @param  {Boolean} force              [description]
  * @return {[type]}                     [description]
  */
 var BindData = function (data, force) {
-    if (!Util.isObject(data)) return refBase;
-    if (data[idPropertyName] !== undefined && !force) return refBase;
+    if (!Util.isObject(data)) return refSpace;
+    if (data[idPropertyName] !== undefined && !force) return refSpace;
 
     Object.defineProperty(data, idPropertyName, {
         value: Util.gid()
     });
 
-    refBase[data[idPropertyName]] = {
+    refSpace[data[idPropertyName]] = {
         data: data,
         props: {}
     };
-    var rootNode = refBase[data[idPropertyName]];
+    var rootNode = refSpace[data[idPropertyName]];
 
     function bindProps(node, obj) {
         if (!Util.isObject(obj)) return;
@@ -73,7 +73,7 @@ var BindData = function (data, force) {
     }
     bindSetters(rootNode, data);
 
-    return refBase;
+    return refSpace;
 };
 
 export default BindData
