@@ -1,26 +1,28 @@
 import * as Util from './Util'
 import OArray from './ObservableArray'
 
+var idPropertyName = '__DMD_DARK_REF';
+var refBase = {};
+
 /**
  * Bind an object data into a reference base.
  * @param  {Object} data                [description]
  * @param  {Boolean} force              [description]
- * @param  {String} idPropertyName      [description]
- * @param  {Object} refBase             [description]
  * @return {[type]}                     [description]
  */
-var BindData = function (data, force, idPropertyName, refBase) {
-    if (!Util.isObject(data)) return false;
-    if (data[idPropertyName] !== undefined && !force) return;
+var BindData = function (data, force) {
+    if (!Util.isObject(data)) return refBase;
+    if (data[idPropertyName] !== undefined && !force) return refBase;
 
-    var id = Util.gid();
     Object.defineProperty(data, idPropertyName, {
-        value: id
+        value: Util.gid()
     });
-    refBase[id] = {
+
+    refBase[data[idPropertyName]] = {
         data: data,
         props: {}
     };
+    var rootNode = refBase[data[idPropertyName]];
 
     function bindProps(node, obj) {
         if (!Util.isObject(obj)) return;
@@ -34,7 +36,7 @@ var BindData = function (data, force, idPropertyName, refBase) {
             bindProps(node.props[p], v);
         });
     }
-    bindProps(refBase[id], data);
+    bindProps(rootNode, data);
 
     function bindSetters(node, obj) {
         Util.each(obj, function (v, p) {
@@ -69,7 +71,9 @@ var BindData = function (data, force, idPropertyName, refBase) {
             bindSetters(node.props[p], v);
         });
     }
-    bindSetters(refBase[id], data);
+    bindSetters(rootNode, data);
+
+    return refBase;
 };
 
 export default BindData

@@ -97,10 +97,8 @@ var DMD = function ($el, option) {
 
 var DMDDefs = {
     realRefs: 'DMD_REAL_REFs',
-    darkRef: '__DMD_DARK_REF',
     refSeparator: '/'
 };
-var DMDRefSpace = {};
 
 /**
  * Bind an object data.
@@ -108,15 +106,15 @@ var DMDRefSpace = {};
  * @param  {Boolean} force              [description]
  * @return {[type]}                     [description]
  */
-var BindData = function (data, force) {
-    return BindDataToRefBase(data, force, DMDDefs.darkRef, DMDRefSpace);
-};
-
-DMD[DMDDefs.realRefs] = DMDRefSpace;
+function BindData(data, force) {
+    return BindDataToRefBase(data, force);
+}
+DMD[DMDDefs.realRefs] = BindData();
 
 DMD.prototype.alias = function (map) {
     return Alias(map, this.$el);
 };
+
 DMD.prototype.bind = function (ref, relation) {
     BindData(ref);
     return Bind(ref, this.$el, relation);

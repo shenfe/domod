@@ -194,7 +194,9 @@ var extend = function (dest, srcs, clean) {
         if (!isObject(src)) return;
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
-                obj[p] = clone(v);
+                if (obj[p] !== v) {
+                    obj[p] = clone(v);
+                }
             } else {
                 extendObj(obj[p], v, clean);
             }
