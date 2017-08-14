@@ -96,7 +96,6 @@ var DMD = function ($el, option) {
 };
 
 var DMDDefs = {
-    realRefs: 'DMD_REAL_REFs',
     refSeparator: '/'
 };
 
@@ -109,7 +108,7 @@ var DMDDefs = {
 function BindData(data, force) {
     return BindDataToRefBase(data, force);
 }
-DMD[DMDDefs.realRefs] = BindData();
+var DMDRefSpace = BindData();
 
 DMD.prototype.alias = function (map) {
     return Alias(map, this.$el);
