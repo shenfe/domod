@@ -95,7 +95,11 @@ var DefaultConf = {
         styleParser: function () {},
         eventParser: function () {},
         attrValueParser: function () {},
-        textValueParser: function () {}
+        textValueParser: function (tmpl, executor) {
+            return a.replace(/{([^{}]*)}/ig, function (match, p1, p2, p3, offset, string) {
+                return executor(p1);
+            });
+        }
     }
 };
 
