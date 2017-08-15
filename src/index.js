@@ -1,4 +1,4 @@
-import * from './Polyfill'
+import './Polyfill'
 import * as Util from './Util'
 import { AliasDOM, Alias } from './AliasDOM'
 import BindData from './DataBinding'
