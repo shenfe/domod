@@ -14,30 +14,38 @@ var AliasDOM = function (map, $el) {
         return w === 'alias' || w === 'lazy' || w === 'join';
     }
 
-    function alias(map, $root, obj, fullSel, fullAlias) {
-        map = Util.isString(map) ? {
-            alias: map
-        } : (Util.isObject(map) ? map : {});
-        $root = $root || window.document.body;
-        obj = obj || {};
-        if (!obj.__root) {
-            Object.defineProperty(obj, '__root', {
-                value: $root
+    (function lazyDown(map) {
+        if (!Util.isObject(map)) return;
+        if (map.lazy) {
+            Util.each(map, function (v, p) {
+                if (isKeyword(p)) return;
+                if (Util.isString(v)) {
+                    map[p] = {
+                        alias: v,
+                        lazy: true
+                    };
+                } else if (Util.isObject(v)) {
+                    v.lazy = true;
+                }
             });
         }
+        Util.each(map, lazyDown);
+    })(map);
+
+    (function alias(map, $root, obj, fullSel, fullAlias) {
+        map = Util.isString(map) ? { alias: map } : (Util.isObject(map) ? map : {});
+        $root = $root || window.document.body;
+        obj = obj || {};
+        !obj.__root && Object.defineProperty(obj, '__root', { value: $root });
         fullSel = fullSel || [];
         fullAlias = fullAlias || [];
 
         function querySelector($parent, sel) {
             if (!sel) return $parent;
             var $targets = Array.prototype.slice.call($parent.querySelectorAll(sel));
-            if ($targets.length < 1) {
-                return null;
-            } else if ($targets.length === 1) {
-                return $targets[0];
-            } else {
-                return $targets;
-            }
+            if ($targets.length < 1) return null;
+            if ($targets.length === 1) return $targets[0];
+            return $targets;
         }
 
         if (map.alias) {
@@ -57,51 +65,18 @@ var AliasDOM = function (map, $el) {
 
         Util.each(map, function (v, sel) {
             if (isKeyword(sel)) return;
-            alias(v,
-                $root,
-                obj,
-                fullSel.concat(sel),
-                fullAlias
-            );
+            alias(v, $root, obj, fullSel.concat(sel), fullAlias);
         });
 
         return obj;
-    }
-
-    function lazyDown(map) {
-        if (!Util.isObject(map)) return;
-        if (map.lazy) {
-            Util.each(map, function (v, p) {
-                if (isKeyword(p)) return;
-                if (Util.isString(v)) {
-                    map[p] = {
-                        alias: v,
-                        lazy: true
-                    };
-                } else if (Util.isObject(v)) {
-                    v.lazy = true;
-                }
-            });
-        }
-        Util.each(map, lazyDown);
-    }
-
-    lazyDown(map);
-
-    alias(map, $el, this);
+    })(map, $el, this);
 };
 
 /**
  * Alias DOM factory function.
- * @param  {Object|String} map              Selector-alias map.
- * @param  {HTMLElement|Undefined} $el      Root element.
- * @return {AliasDOM}                       An AliasDOM instance.
  */
 var Alias = function (map, $el) {
     return new AliasDOM(map, $el);
 };
 
-export {
-    AliasDOM,
-    Alias
-}
+export { AliasDOM, Alias }
