@@ -1,7 +1,7 @@
 import './Polyfill'
 import * as Util from './Util'
 import { AliasDOM, Alias } from './AliasDOM'
-import BindData from './DataBinding'
+import { BindData, GetBinding } from './DataBinding'
 
 /* Initialize the reference space. */
 var DMDRefSpace = BindData();
@@ -42,6 +42,7 @@ function Bind(ref, $el, relation) {
     if (mode === 'active') {
         Util.each(relation, function (v, p) {
             switch (p) {
+                case 'model':
                 case 'show':
                 case 'innerText':
                 case 'innerHTML':
@@ -63,6 +64,8 @@ function Bind(ref, $el, relation) {
                 if (!name.startsWith(_this.attrPrefix)) return;
                 name = name.substr(_this.attrPrefix.length);
                 switch (name) {
+                    case 'model':
+                        break;
                     case 'show':
                         break;
                     case 'text':

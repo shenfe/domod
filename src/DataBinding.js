@@ -76,4 +76,10 @@ var BindData = function (data, force) {
     return refSpace;
 };
 
-export default BindData
+var GetBinding = function (data, ref) {
+    if (!data[idPropertyName]) {
+        BindData(data);
+    }
+};
+
+export { BindData, GetBinding }
