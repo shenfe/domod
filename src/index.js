@@ -30,11 +30,20 @@ function Bind(ref, $el, relation) {
 
     if (!Util.isNode($el)) return;
 
+    function applyRelation(rel, loop) {
+        if (!loop) {
+            return function (relate) {
+                // TODO: add `relate` as a setter to the refs in `rel`
+            };
+        }
+    }
+
     /**
      * 绑定/渲染模式
      * @type {String}
      * @note "active"模式: 指定ref和$el之间的relation，主动进行双向绑定，不依赖于dom标签中的属性和模板；
-     *           绑定逻辑可分离为配置对象；可以达到渲染和绑定分离的目的，所以如果是SSR则更推荐这种模式.
+     *           绑定逻辑可分离为配置对象；可以达到渲染和绑定分离的目的，所以如果是SSR或第三方UI组件则
+     *           更推荐这种模式.
      *       "passive"模式: 依赖于dom标签内定义的属性和模板，进行解析；渲染与绑定逻辑耦合，模板即组件.
      */
     var mode = Util.isObject(relation) ? 'active' : 'passive';
@@ -44,8 +53,17 @@ function Bind(ref, $el, relation) {
             switch (p) {
                 case 'model':
                 case 'show':
+                    applyRelation(v)(function (v) {
+                        $el.style.display = v ? 'block' : 'none';
+                    });
                 case 'innerText':
+                    applyRelation(v)(function (v) {
+                        $el['innerText'] = v;
+                    });
                 case 'innerHTML':
+                    applyRelation(v)(function (v) {
+                        $el['innerHTML'] = v;
+                    });
                 case 'className':
                 case 'style':
                     break;
@@ -89,6 +107,17 @@ function Bind(ref, $el, relation) {
             // TODO
         }
     }
+}
+
+/**
+ * Unbind data from DOM.
+ * @param       {[type]} ref      [description]
+ * @param       {[type]} $el      [description]
+ * @param       {[type]} relation [description]
+ * @constructor
+ */
+function Unbind(ref, $el, relation) {
+    // TODO
 }
 
 /**

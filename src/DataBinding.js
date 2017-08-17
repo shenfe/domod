@@ -76,10 +76,11 @@ var BindData = function (data, force) {
     return refSpace;
 };
 
-var GetBinding = function (data, ref) {
+var GetBinding = function (data) {
     if (!data[idPropertyName]) {
         BindData(data);
     }
+    return refSpace[data[idPropertyName]];
 };
 
 export { BindData, GetBinding }
