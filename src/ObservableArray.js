@@ -101,8 +101,9 @@ OArray.prototype.push = function (v) {
 };
 
 OArray.prototype.pop = function (v) {
+    var re = (this.__length > 0) ? this[this.__length - 1] : undefined;
     if (this.deleteElement(this.__length - 1)) this.__length -= 1;
-    return this.__length;
+    return re;
 };
 
 OArray.prototype.offset = function (startIndex, howManyElements, howManySteps, notClean) {
@@ -147,8 +148,9 @@ OArray.prototype.unshift = function (v) {
 };
 
 OArray.prototype.shift = function (v) {
+    var re = (this.__length > 0) ? this[0] : undefined;
     this.offset(0, null, -1);
-    return this.__length;
+    return re;
 };
 
 OArray.prototype.toArray = function (notClone) {

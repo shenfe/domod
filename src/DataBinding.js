@@ -76,11 +76,17 @@ var BindData = function (data, force) {
     return refSpace;
 };
 
-var GetBinding = function (data) {
+var GetBinding = function (data, refPath) {
     if (!data[idPropertyName]) {
         BindData(data);
     }
-    return refSpace[data[idPropertyName]];
+    var node = refSpace[data[idPropertyName]];
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+    while (paths.length) {
+        node = node.props[path.shift()];
+    }
+    return node;
 };
 
 export { BindData, GetBinding }

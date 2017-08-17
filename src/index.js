@@ -22,8 +22,8 @@ function Bind(ref, $el, relation) {
     var _this = this;
 
     if (Util.isInstance($el, AliasDOM)) {
-        Util.each($el, function (dom) {
-            Bind(ref, dom);
+        Util.each($el, function (dom, a) {
+            Bind(ref, dom, relation[a]);
         });
         return;
     }
@@ -31,9 +31,26 @@ function Bind(ref, $el, relation) {
     if (!Util.isNode($el)) return;
 
     function applyRelation(rel, loop) {
+        var deps;
+        if (Util.isString(rel)) {
+            deps = GetBinding(ref, rel);
+        } else if (Util.isArray(rel)) {
+            if (Util.isString(rel[0])) {
+                deps = [GetBinding(ref, rel[0])];
+            } else if (Util.isArray(rel[0])) {
+                deps = rel[0].map(function (r) { return GetBinding(ref, r); });
+            }
+        }
         if (!loop) {
             return function (relate) {
-                // TODO: add `relate` as a setter to the refs in `rel`
+                // TODO: add `relate` as a setter to the deps in `rel`
+                Util.each(deps, function (dep, i) {
+                    dep.setters.push(function (v) {
+                        var _v;
+                        if (rel[1]) _v = rel[1].call(ref);
+                        relate(_v);
+                    });
+                });
             };
         }
     }
@@ -52,27 +69,37 @@ function Bind(ref, $el, relation) {
         Util.each(relation, function (v, p) {
             switch (p) {
                 case 'model':
+                    applyRelation(v, true)(function () {
+                        // TODO
+                    });
+                    break;
                 case 'show':
                     applyRelation(v)(function (v) {
                         $el.style.display = v ? 'block' : 'none';
                     });
+                    break;
                 case 'innerText':
-                    applyRelation(v)(function (v) {
-                        $el['innerText'] = v;
-                    });
                 case 'innerHTML':
-                    applyRelation(v)(function (v) {
-                        $el['innerHTML'] = v;
-                    });
                 case 'className':
                 case 'style':
+                    applyRelation(v)(function (v) {
+                        $el[p] = v;
+                    });
                     break;
                 default:
                     var pNum = parseInt(p);
                     if (!isNaN(pNum)) { /* Node Index */
                     } else if (Util.isEventName(p)) { /* Event */
+                        $el.addEventListener(p, v, false);
                     } else if (Util.isCSSSelector(p)) { /* CSS Selector */
+                        var children = Array.prototype.slice.call($el.querySelectorAll(p), 0);
+                        Util.each(children, function (dom) {
+                            Bind(ref, dom, v);
+                        });
                     } else { /* Attribute */
+                        applyRelation(v)(function (v) {
+                            $el.setAttribute(p, v);
+                        });
                     }
             }
         });
