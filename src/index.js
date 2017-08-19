@@ -31,27 +31,42 @@ function Bind(ref, $el, relation) {
     if (!Util.isNode($el)) return;
 
     function applyRelation(rel, loop) {
-        var deps;
+        var deps = [], eval = function (v) { return v; };
         if (Util.isString(rel)) {
-            deps = GetBinding(ref, rel);
+            deps.push(GetBinding(ref, rel));
         } else if (Util.isArray(rel)) {
-            if (Util.isString(rel[0])) {
-                deps = [GetBinding(ref, rel[0])];
-            } else if (Util.isArray(rel[0])) {
-                deps = rel[0].map(function (r) { return GetBinding(ref, r); });
+            if (Util.isFunction(rel[rel.length - 1])) {
+                eval = rel[rel.length - 1];
+                if (Util.isArray(rel[0])) {
+                    deps = rel[0];
+                } else {
+                    deps = rel.filter(function (v) { return Util.isString(v); });
+                }
+                deps = deps.map(function (r) { return GetBinding(ref, r); });
+            } else {
+                eval = function () {
+                    var parts = [];
+                    Util.each(rel, function (r, part) {
+                        if (r === true) parts.push(part);
+                        else {
+                            
+                        }
+                    });
+                };
             }
         }
         if (!loop) {
             return function (relate) {
-                // TODO: add `relate` as a setter to the deps in `rel`
+                /* Add `relate` as a setter to the deps in `rel`. */
                 Util.each(deps, function (dep, i) {
                     dep.setters.push(function (v) {
-                        var _v;
-                        if (rel[1]) _v = rel[1].call(ref);
+                        var _v = eval.call(ref, v);
                         relate(_v);
                     });
                 });
             };
+        } else {
+            // TODO
         }
     }
 

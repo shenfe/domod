@@ -5,6 +5,10 @@ var gid = (function () {
     };
 })();
 
+var isBoolean = function (v) {
+    return typeof v === 'boolean';
+};
+
 var isNumber = function (v) {
     return typeof v === 'number';
 };
@@ -221,6 +225,7 @@ var extend = function (dest, srcs, clean) {
 
 export {
     gid,
+    isBoolean,
     isNumber,
     isNumeric,
     isString,
