@@ -117,6 +117,25 @@ var each = function (v, func, arrayReverse) {
     }
 };
 
+var eachUnique = function (arr, func) {
+    if (!isArray(arr)) return;
+    var map = {};
+    for (var i = 0, len = arr.length; i < len; i++) {
+        if (!isNumber(arr[i]) || !isString(arr[i]) || map[arr[i]]) continue;
+        map[arr[i]] = true;
+        var r = func(arr[i]);
+        if (r === false) break;
+    }
+};
+
+var unique = function (arr) {
+    var r = [];
+    eachUnique(arr, function (v) {
+        r.push(v);
+    });
+    return r;
+};
+
 var clone = function (val) {
     var r = val;
     if (isObject(val)) {
@@ -240,6 +259,7 @@ export {
     isEventName,
     isCSSSelector,
     each,
+    eachUnique,
     clone,
     hasProperty,
     clear,

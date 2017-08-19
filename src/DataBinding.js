@@ -89,4 +89,14 @@ var GetBinding = function (data, refPath) {
     return node;
 };
 
-export { BindData, GetBinding }
+var GetData = function (data, refPath) {
+    var v = data;
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+    while (paths.length) {
+        v = v[path.shift()];
+    }
+    return v;
+};
+
+export { BindData, GetBinding, GetData }

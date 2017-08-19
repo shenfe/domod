@@ -1,7 +1,7 @@
 import './Polyfill'
 import * as Util from './Util'
 import { AliasDOM, Alias } from './AliasDOM'
-import { BindData, GetBinding } from './DataBinding'
+import { BindData, GetBinding, GetData } from './DataBinding'
 
 /* Initialize the reference space. */
 var DMDRefSpace = BindData();
@@ -30,38 +30,70 @@ function Bind(ref, $el, relation) {
 
     if (!Util.isNode($el)) return;
 
-    function applyRelation(rel, loop) {
+    function depsAndEval(ref, rel) {
         var deps = [], eval = function (v) { return v; };
         if (Util.isString(rel)) {
-            deps.push(GetBinding(ref, rel));
+            deps.push(rel);
+            eval = function () { return GetData(ref, rel); };
         } else if (Util.isArray(rel)) {
             if (Util.isFunction(rel[rel.length - 1])) {
                 eval = rel[rel.length - 1];
                 if (Util.isArray(rel[0])) {
-                    deps = rel[0];
+                    deps = rel[0].slice(0);
                 } else {
                     deps = rel.filter(function (v) { return Util.isString(v); });
                 }
-                deps = deps.map(function (r) { return GetBinding(ref, r); });
             } else {
+                var parts = [];
+                Util.each(rel, function (v) {
+                    if (Util.isString(v)) {
+                        parts.push(v);
+                    } else if (Util.isObject(v)) {
+                        Util.each(v, function (r, p) {
+                            var de = depsAndEval(ref, r);
+                            deps = deps.concat(de.deps);
+                            var obj = {};
+                            obj[p] = de.eval;
+                            parts.push(obj);
+                        });
+                    }
+                });
                 eval = function () {
-                    var parts = [];
-                    Util.each(rel, function (r, part) {
-                        if (r === true) parts.push(part);
-                        else {
-                            
+                    var re = [];
+                    Util.each(parts, function (v) {
+                        if (Util.isString(v)) {
+                            re.push(v);
+                        } else if (Util.isObject(v)) {
+                            Util.each(v, function (e, p) {
+                                if (e.call(ref)) re.push(p);
+                                return false;
+                            });
                         }
                     });
+                    return re.join('\n');
                 };
             }
         }
+
+        return {
+            deps: deps,
+            eval: eval
+        };
+    }
+
+    function applyRelation(rel, loop) {
+        var de = depsAndEval(ref, rel);
+        var deps = Util.unique(de.deps).map(function (r) { return GetBinding(ref, r); });
+        var eval = de.eval;
         if (!loop) {
             return function (relate) {
+                /* Apply the relation now. */
+                relate(eval.call(ref));
+
                 /* Add `relate` as a setter to the deps in `rel`. */
-                Util.each(deps, function (dep, i) {
+                Util.each(deps, function (dep) {
                     dep.setters.push(function (v) {
-                        var _v = eval.call(ref, v);
-                        relate(_v);
+                        relate(eval.call(ref, v));
                     });
                 });
             };
@@ -93,10 +125,14 @@ function Bind(ref, $el, relation) {
                         $el.style.display = v ? 'block' : 'none';
                     });
                     break;
+                case 'style':
+                    applyRelation(v)(function (v) {
+                        $el['cssText'] = v;
+                    });
+                    break;
                 case 'innerText':
                 case 'innerHTML':
                 case 'className':
-                case 'style':
                     applyRelation(v)(function (v) {
                         $el[p] = v;
                     });
