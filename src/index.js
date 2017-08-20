@@ -1,6 +1,5 @@
 import './Polyfill'
 import * as Util from './Util'
-import { AliasDOM, Alias } from './AliasDOM'
 import { BindData, GetBinding, GetData } from './DataBinding'
 
 /* Initialize the reference space. */
@@ -9,7 +8,7 @@ var DMDRefSpace = BindData();
 /**
  * Bind data to DOM.
  * @param  {Object} ref                 [description]
- * @param  {HTMLElement|AliasDOM} $el   [description]
+ * @param  {HTMLElement} $el            [description]
  * @param  {Object} relation            [description]
  * @return {[type]}                     [description]
  * @note   如果有relation，则认为是active模式，否则是passive模式；active模式会主动去
@@ -20,13 +19,6 @@ function Bind(ref, $el, relation) {
     BindData(ref);
 
     var _this = this;
-
-    if (Util.isInstance($el, AliasDOM)) {
-        Util.each($el, function (dom, a) {
-            Bind(ref, dom, relation[a]);
-        });
-        return;
-    }
 
     if (!Util.isNode($el)) return;
 
@@ -243,10 +235,6 @@ DMD_Constructor: {
         Util.extend(this.defaults, DefaultConf, option);
     };
 
-    DMD.prototype.alias = function (map) {
-        return Alias(map, this.$el);
-    };
-
     DMD.prototype.bind = function (ref, relation) {
         return Bind(ref, this.$el, relation);
     };
@@ -257,7 +245,6 @@ DMD_Factory: {
         return new DMD($el, option);
     };
     factory.defaults = Util.clone(DefaultConf);
-    factory.alias = Alias;
     factory.data = BindData;
     factory.bind = Bind;
 }
