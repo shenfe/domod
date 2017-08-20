@@ -30,6 +30,12 @@ function Bind(ref, $el, relation) {
 
     if (!Util.isNode($el)) return;
 
+    /**
+     * Get dependencies and evaluating function of a relation to the reference data.
+     * @param  {Object} ref         [description]
+     * @param  {String|Array} rel   [description]
+     * @return {Object}             [description]
+     */
     function depsAndEval(ref, rel) {
         var deps = [], eval = function (v) { return v; };
         if (Util.isString(rel)) {
@@ -81,7 +87,14 @@ function Bind(ref, $el, relation) {
         };
     }
 
-    function applyRelation(rel, loop) {
+    /**
+     * Apply a relation upon the reference data.
+     * @param  {Object} ref         [description]
+     * @param  {String|Array} rel   [description]
+     * @param  {Boolean} loop       [description]
+     * @return {Function}           [description]
+     */
+    function applyRelation(ref, rel, loop) {
         var de = depsAndEval(ref, rel);
         var deps = Util.unique(de.deps).map(function (r) { return GetBinding(ref, r); });
         var eval = de.eval;
@@ -116,24 +129,24 @@ function Bind(ref, $el, relation) {
         Util.each(relation, function (v, p) {
             switch (p) {
                 case 'model':
-                    applyRelation(v, true)(function () {
+                    applyRelation(ref, v, true)(function () {
                         // TODO
                     });
                     break;
                 case 'show':
-                    applyRelation(v)(function (v) {
+                    applyRelation(ref, v)(function (v) {
                         $el.style.display = v ? 'block' : 'none';
                     });
                     break;
                 case 'style':
-                    applyRelation(v)(function (v) {
+                    applyRelation(ref, v)(function (v) {
                         $el['cssText'] = v;
                     });
                     break;
                 case 'innerText':
                 case 'innerHTML':
                 case 'className':
-                    applyRelation(v)(function (v) {
+                    applyRelation(ref, v)(function (v) {
                         $el[p] = v;
                     });
                     break;
@@ -148,7 +161,7 @@ function Bind(ref, $el, relation) {
                             Bind(ref, dom, v);
                         });
                     } else { /* Attribute */
-                        applyRelation(v)(function (v) {
+                        applyRelation(ref, v)(function (v) {
                             $el.setAttribute(p, v);
                         });
                     }
