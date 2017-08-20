@@ -260,6 +260,7 @@ export {
     isCSSSelector,
     each,
     eachUnique,
+    unique,
     clone,
     hasProperty,
     clear,
