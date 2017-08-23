@@ -5,14 +5,8 @@ var canUseProxy = typeof Proxy === 'function';
 var OArray = function (arr, option) {
     if (!Util.isArray(arr)) arr = [];
 
-    var _this = this;
-
     Object.defineProperty(this, '__data', {
         value: arr
-    });
-
-    ['set', 'push', 'pop', 'unshift', 'shift', 'splice'].forEach(function (e) {
-        Object.defineProperty(_this, 'on' + e, { value: [] });
     });
 
     Object.defineProperty(this, 'length', {
@@ -24,8 +18,14 @@ var OArray = function (arr, option) {
         }
     });
 
+    var _this = this;
+
+    ['set', 'push', 'pop', 'unshift', 'shift', 'splice'].forEach(function (e) {
+        Object.defineProperty(_this, 'on' + e, { value: [] });
+    });
+
     Util.each(arr, function (v, i) {
-        _this.assignElement(i, v);
+        _this.assignElement(i);
     });
 };
 
@@ -74,10 +74,8 @@ OArray.prototype.assignElement = function (i) {
         enumerable: true
     });
 };
-
 OArray.prototype.deleteElement = function () {
-    if (this.hasOwnProperty(this.length - 1))
-        delete this[this.length - 1];
+    if (this.hasOwnProperty(this.length - 1)) delete this[this.length - 1];
 };
 
 OArray.prototype.push = function (v) {
@@ -85,19 +83,16 @@ OArray.prototype.push = function (v) {
     this.assignElement(this.length - 1);
     this.dispatchEvent('push', v);
 };
-
 OArray.prototype.pop = function (v) {
     this.deleteElement();
     this.__data.pop();
     this.dispatchEvent('pop');
 };
-
 OArray.prototype.unshift = function (v) {
     this.__data.unshift(v);
     this.assignElement(this.length - 1);
     this.dispatchEvent('unshift', v);
 };
-
 OArray.prototype.shift = function (v) {
     this.deleteElement();
     this.__data.shift();
