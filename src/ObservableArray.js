@@ -4,274 +4,164 @@ var canUseProxy = typeof Proxy === 'function';
 
 var OArray = function (arr, option) {
     if (!Util.isArray(arr)) arr = [];
-    if (!Util.isObject(option)) option = {};
-
-    Object.defineProperty(this, 'afterInsertElement', {
-        value: option.afterInsertElement || function (target, p) {}
-    });
-    Object.defineProperty(this, 'beforeDeleteElement', {
-        value: option.beforeDeleteElement || function (target, p) {}
-    });
-    Object.defineProperty(this, 'elementEquality', {
-        value: option.elementEquality || function (v1, v2) { return v1 === v2; }
-    });
-
-    var len = 0;
-    Object.defineProperty(this, '__length', {
-        get: function () {
-            return len;
-        },
-        set: function (v) {
-            return len = v;
-        }
-    });
-    Object.defineProperty(this, 'length', {
-        get: function () {
-            return this.__length;
-        },
-        set: function (v) {
-            if (!Util.isNumber(v)) return false;
-            var n = parseInt(v);
-            if (isNaN(n) || n < 0) return false;
-            if (n > this.__length) {
-                for (var i = this.__length; i < n; i++)
-                    this.push(undefined);
-            } else if (n < this.__length) {
-                for (var i = this.__length - 1; i >= n; i--)
-                    this.pop();
-            }
-            return this.__length;
-        }
-    });
-
-    var extendable = false;
-    Object.defineProperty(this, '__extendable', {
-        get: function () {
-            return extendable;
-        },
-        set: function (v) {
-            return extendable = !!v;
-        }
-    });
 
     var _this = this;
-    this.__extendable = true;
-    Util.each(arr, function (v, i) {
-        _this.push(v);
+
+    Object.defineProperty(this, '__data', {
+        value: arr
     });
-    this.__extendable = false;
+
+    ['set', 'push', 'pop', 'unshift', 'shift', 'splice'].forEach(function (e) {
+        Object.defineProperty(_this, 'on' + e, { value: [] });
+    });
+
+    Object.defineProperty(this, 'length', {
+        get: function () {
+            return arr.length;
+        },
+        set: function (v) {
+            arr.length = v;
+        }
+    });
+
+    Util.each(arr, function (v, i) {
+        _this.assignElement(i, v);
+    });
 };
 
 OArray.prototype = [];
 OArray.prototype.constructor = OArray;
 
-OArray.prototype.assignElement = function (i, val) {
-    if (!Util.isNumber(i)) return false;
-    if (this.hasOwnProperty(i)) {
-        this[i] = val;
-    } else if (this.__extendable) {
-        var v = val;
-        Object.defineProperty(this, i, {
-            get: function () {
-                return v;
-            },
-            set: function (_v) {
-                return v = _v;
-            },
-            configurable: true,
-            enumerable: true
-        });
-    } else {
-        return false;
-    }
+OArray.prototype.addEventListener = function (eventName, handler) {
+    if (!this['on' + eventName] || !Util.isFunction(handler)) return;
+    this['on' + eventName].push(handler);
+};
+OArray.prototype.removeEventListener = function (eventName, handler) {
+    var _this = this;
+    if (!this['on' + eventName] || !Util.isFunction(handler)) return;
+    var handlers = this['on' + eventName];
+    Util.each(handlers, function (h, i) {
+        if (h === handler) {
+            handlers.splice(i, 1);
+            return false;
+        }
+    });
+};
+OArray.prototype.dispatchEvent = function (eventName, args) {
+    args = Array.prototype.slice.call(arguments, 1);
+    var _this = this;
+    Util.each(this['on' + eventName], function (handler) {
+        handler.apply(_this, args);
+    });
 };
 
-OArray.prototype.deleteElement = function (i) {
-    if (!Util.isNumber(i) || !this.hasOwnProperty(i)) return false;
-    delete this[i];
-    return true;
+OArray.prototype.assignElement = function (i) {
+    Object.defineProperty(this, i, {
+        get: function () {
+            return this.__data[i];
+        },
+        set: function (val) {
+            var e = this.__data[i];
+            if (Util.isBasic(e) || Util.isBasic(val)) {
+                this.dispatchEvent('set', e, val, i, this.__data);
+                e = val;
+                this.__data[i] = e;
+            } else {
+                Util.extend(e, val, true);
+            }
+        },
+        configurable: true,
+        enumerable: true
+    });
+};
+
+OArray.prototype.deleteElement = function () {
+    if (this.hasOwnProperty(this.length - 1))
+        delete this[this.length - 1];
 };
 
 OArray.prototype.push = function (v) {
-    this.__extendable = true;
-    this.assignElement(this.__length, v);
-    this.__extendable = false;
-    this.__length++;
-    return this.__length;
+    this.__data.push(v);
+    this.assignElement(this.length - 1);
+    this.dispatchEvent('push', v);
 };
 
 OArray.prototype.pop = function (v) {
-    var re = (this.__length > 0) ? this[this.__length - 1] : undefined;
-    if (this.deleteElement(this.__length - 1)) this.__length -= 1;
-    return re;
-};
-
-OArray.prototype.offset = function (startIndex, howManyElements, howManySteps, notClean) {
-    if (!Util.isNumber(startIndex) || startIndex < 0 || startIndex >= this.__length) return false;
-    if (!Util.isNumber(howManySteps) || howManySteps === 0) return false;
-    if (!Util.isNumber(howManyElements) || howManyElements <= 0
-        || howManyElements + startIndex > this.__length) howManyElements = this.__length - startIndex;
-    this.__extendable = true;
-    if (howManySteps > 0) { /* to right */
-        for (var i = startIndex + howManyElements - 1 + howManySteps; i >= startIndex + howManySteps; i--) {
-            this.assignElement(i, this[i - howManySteps]);
-        }
-        if (!notClean) {
-            for (var i = startIndex; i < startIndex + howManySteps; i++) {
-                this.assignElement(i, undefined);
-            }
-        }
-        if (startIndex + howManyElements + howManySteps > this.__length) {
-            this.__length = startIndex + howManyElements + howManySteps;
-        }
-    } else { /* to left */
-        for (var i = Math.max(0, startIndex + howManySteps); i < startIndex + howManyElements + howManySteps; i++) {
-            this.assignElement(i, this[i - howManySteps]);
-        }
-        for (var i = Math.max(0, startIndex + howManyElements + howManySteps);
-            i < startIndex + howManyElements; i++) {
-            this.assignElement(i, undefined);
-        }
-        if (startIndex + howManyElements >= this.__length) {
-            this.length = Math.max(0, startIndex + howManyElements + howManySteps);
-        }
-    }
-    this.__extendable = false;
+    this.deleteElement();
+    this.__data.pop();
+    this.dispatchEvent('pop');
 };
 
 OArray.prototype.unshift = function (v) {
-    this.offset(0, null, 1);
-    this.__extendable = true;
-    this.assignElement(0, v);
-    this.__extendable = false;
-    return this.__length;
+    this.__data.unshift(v);
+    this.assignElement(this.length - 1);
+    this.dispatchEvent('unshift', v);
 };
 
 OArray.prototype.shift = function (v) {
-    var re = (this.__length > 0) ? this[0] : undefined;
-    this.offset(0, null, -1);
-    return re;
+    this.deleteElement();
+    this.__data.shift();
+    this.dispatchEvent('shift');
 };
 
 OArray.prototype.toArray = function (notClone) {
-    var r = [];
-    this.forEach(function (v, i) {
-        r.push(notClone ? v : Util.clone(v));
-    });
-    return r;
+    return notClone ? this.__data : Util.clone(this.__data);
 };
 
 OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
-    if (!Util.isNumber(startIndex)) return [];
-    if (startIndex < 0 || startIndex >= this.__length) return [];
+    if (!Util.isNumber(startIndex) || startIndex < 0) startIndex = 0;
+    if (startIndex >= this.length) startIndex = this.length;
     if (!Util.isNumber(howManyToDelete) || howManyToDelete < 0) howManyToDelete = 0;
-    if (howManyToDelete + startIndex > this.__length) howManyToDelete = this.__length - startIndex;
+    if (howManyToDelete + startIndex > this.length) howManyToDelete = this.length - startIndex;
 
-    var r = [];
+    var itemsToDelete = [];
     for (var i = startIndex; i < startIndex + howManyToDelete; i++) {
-        r.push(Util.clone(this[i]));
+        itemsToDelete.push(Util.clone(this[i]));
     }
 
     var itemsToInsert = Array.prototype.slice.call(arguments, 2);
     var howManyToInsert = itemsToInsert.length;
 
-    this.__extendable = true;
-    if (howManyToDelete >= howManyToInsert) {
-        if (startIndex + howManyToDelete === this.__length) {
-            for (var i = 0; i < howManyToDelete - howManyToInsert; i++) {
-                this.pop();
-            }
-        } else {
-            this.offset(startIndex + howManyToDelete, null, howManyToInsert - howManyToDelete);
-        }
-        for (var i = startIndex; i < startIndex + howManyToInsert; i++) {
-            this.assignElement(i, itemsToInsert[i - startIndex]);
-        }
-    } else if (howManyToDelete < howManyToInsert) {
-        if (startIndex + howManyToDelete === this.__length) {
-            this.__length = startIndex + howManyToInsert;
-        } else {
-            this.offset(startIndex + howManyToDelete, null, howManyToInsert - howManyToDelete, true);
-        }
-        for (var i = startIndex; i < startIndex + howManyToInsert; i++) {
-            this.assignElement(i, itemsToInsert[i - startIndex]);
-        }
+    var howManyToSet = Math.min(howManyToDelete, howManyToInsert);
+    for (var i = startIndex; i < startIndex + howManyToSet; i++) {
+        this[i] = itemsToInsert[i - startIndex];
     }
-    this.__extendable = false;
 
-    return r;
-};
+    if (howManyToDelete === howManyToInsert) return;
 
-OArray.prototype.slice = function (startIndex, endIndex, notClone) {
-    if (!Util.isNumber(startIndex)) return [];
-    if (!Util.isNumber(endIndex)) endIndex = this.__length;
-    if (startIndex < 0 || endIndex > this.__length || startIndex >= endIndex) return [];
-    var r = [];
-    for (var i = startIndex; i < endIndex; i++) {
-        r.push(notClone ? this[i] : Util.clone(this[i]));
+    var args;
+    if (howManyToDelete > howManyToInsert) {
+        args = [startIndex + howManyToInsert, howManyToDelete - howManyToInsert];
+        Array.prototype.splice.apply(this.__data, args);
+    } else {
+        args = [startIndex + howManyToDelete, 0].concat(itemsToInsert.slice(howManyToDelete));
+        Array.prototype.splice.apply(this.__data, args);
     }
-    return r;
+    this.dispatchEvent.apply(this, ['splice'].concat(args));
 };
-
-OArray.prototype.concat = function () {
-    return Array.prototype.concat.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.reverse = function () {
-    var m = Math.floor((this.__length - 1) / 2);
-    for (var i = 0; i <= m; i++) {
-        var j = this.__length - 1 - i;
-        var vi = Util.clone(this[i]);
-        var vj = Util.clone(this[j]);
-        this[i] = vj;
-        this[j] = vi;
-    }
-};
-
-OArray.prototype.sort = function (sortBy) {};
 
 OArray.prototype.forEach = function (fn) {
-    for (var i = 0; i < this.__length; i++) {
+    for (var i = 0; i < this.length; i++) {
         var r = fn(this[i], i);
         if (r === false) break;
     }
 };
 
-OArray.prototype.filter = function () {
-    return Array.prototype.filter.apply(this.toArray(), arguments);
-};
+['reverse', 'sort'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        var r = Util.clone(this.__data);
+        Array.prototype[f].apply(r, arguments);
+        for (var i = 0; i < this.length; i++) {
+            this[i] = r[i];
+        }
+    };
+});
 
-OArray.prototype.map = function () {
-    return Array.prototype.map.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.reduce = function () {
-    return Array.prototype.reduce.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.indexOf = function (v) {
-    // TODO: optimization
-    return Array.prototype.indexOf.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.find = function (v) {
-    // TODO: optimization
-    return Array.prototype.find.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.findIndex = function (v) {
-    // TODO: optimization
-    return Array.prototype.findIndex.apply(this.toArray(), arguments);
-};
-
-OArray.prototype.fill = function (v) {
-    this.forEach(function (e, i) {
-        this.assignElement(i, v);
-    });
-};
-
-OArray.prototype.join = function () {
-    return Array.prototype.join.apply(this.toArray(), arguments);
-};
+['slice', 'concat', 'filter', 'map', 'reduce',
+    'indexOf', 'find', 'findIndex', 'fill', 'join'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        return Array.prototype[f].apply(this.toArray(), arguments);
+    };
+});
 
 export default OArray
