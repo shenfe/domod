@@ -94,6 +94,7 @@ var GetData = function (data, refPath) {
     var paths = [];
     if (refPath) paths = refPath.split('.');
     while (paths.length) {
+        if (Util.isBasic(v)) return v;
         v = v[path.shift()];
     }
     return v;
