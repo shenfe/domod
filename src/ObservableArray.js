@@ -36,6 +36,8 @@ OArray.prototype.addEventListener = function (eventName, handler) {
     if (!this['on' + eventName] || !Util.isFunction(handler)) return;
     this['on' + eventName].push(handler);
 };
+OArray.prototype.on = OArray.prototype.addEventListener;
+
 OArray.prototype.removeEventListener = function (eventName, handler) {
     var _this = this;
     if (!this['on' + eventName] || !Util.isFunction(handler)) return;
@@ -47,6 +49,8 @@ OArray.prototype.removeEventListener = function (eventName, handler) {
         }
     });
 };
+OArray.prototype.off = OArray.prototype.removeEventListener;
+
 OArray.prototype.dispatchEvent = function (eventName, args) {
     args = Array.prototype.slice.call(arguments, 1);
     var _this = this;
@@ -54,6 +58,7 @@ OArray.prototype.dispatchEvent = function (eventName, args) {
         handler.apply(_this, args);
     });
 };
+OArray.prototype.trigger = OArray.prototype.dispatchEvent;
 
 OArray.prototype.assignElement = function (i) {
     Object.defineProperty(this, i, {
@@ -78,26 +83,20 @@ OArray.prototype.deleteElement = function () {
     if (this.hasOwnProperty(this.length - 1)) delete this[this.length - 1];
 };
 
-OArray.prototype.push = function (v) {
-    this.__data.push(v);
-    this.assignElement(this.length - 1);
-    this.dispatchEvent('push', v);
-};
-OArray.prototype.pop = function (v) {
-    this.deleteElement();
-    this.__data.pop();
-    this.dispatchEvent('pop');
-};
-OArray.prototype.unshift = function (v) {
-    this.__data.unshift(v);
-    this.assignElement(this.length - 1);
-    this.dispatchEvent('unshift', v);
-};
-OArray.prototype.shift = function (v) {
-    this.deleteElement();
-    this.__data.shift();
-    this.dispatchEvent('shift');
-};
+['push', 'unshift'].forEach(function (f) {
+    OArray.prototype[f] = function (v) {
+        this.__data[f](v);
+        this.assignElement(this.length - 1);
+        this.dispatchEvent(f, v);
+    };
+});
+['pop', 'shift'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        this.deleteElement();
+        this.__data[f]();
+        this.dispatchEvent(f);
+    };
+});
 
 OArray.prototype.toArray = function (notClone) {
     return notClone ? this.__data : Util.clone(this.__data);
