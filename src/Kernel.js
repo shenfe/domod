@@ -1,6 +1,13 @@
 import * as Util from './Util'
 
-function get(root, ref) {
+var Store = {};
+var Dnstreams = {};
+var ResultsIn = {};
+var Upstreams = {};
+var ResultsFrom = {};
+
+function get(ref, root) {
+    if (root === undefined) root = Store;
     if (!Util.isObject(root) || !Util.isString(ref)) return null;
     var node = root;
     var refs = ref.split('.');
@@ -16,70 +23,78 @@ function get(root, ref) {
     }
     return null;
 }
-function set(root, ref, val) {
-    var obj = get(root, ref);
+
+function set(ref, val, root) {
+    var obj = get(ref, root);
     if (obj) obj.target[obj.property] = val;
 }
 
-var Dnstreams = {};
-var ResultsIn = {};
-var Upstreams = {};
-var ResultsFrom = {};
+function register(root) {
+    if (!Util.isObject(root)) return null;
+    if (!root.__kernel_root) {
+        var id = 'kr_' + Util.gid();
+        Object.defineProperty(root, '__kernel_root', {
+            value: id
+        });
+        Store[id] = root;
+    }
+    return root.__kernel_root;
+}
+
+function formatStream(stream, root) {
+    if (Util.isObject(stream) || Util.isString(stream)) stream = [stream];
+    if (Util.isArray(stream)) {
+        return stream.map(function (a) {
+            if (Util.isObject(a)) return register(a.root) + '.' + a.alias;
+            if (Util.isString(a)) return register(root) + '.' + a;
+            return null;
+        });
+    } else {
+        return [];
+    }
+}
 
 /**
  * Kernel constructor function.
  * @param {Object} root                             [description]
  * @param {String} alias                            [description]
- * @param {any} value                               [description]
  * @param {Object} relations                        [description]
  * @constructor
  */
-function Kernel(root, alias, value, relations) {
-    var obj = get(root, alias);
+function Kernel(root, alias, relations) {
+    var obj = get(alias, root);
     if (obj == null) return;
+    alias = register(root) + '.' + alias;
     Object.defineProperty(this, '__alias', {
         value: alias
     });
-    var v = value;
-    var dnstream = relations.dnstream;
+    var dnstream = formatStream(relations.dnstream);
     var resultIn = relations.resultIn;
-    var upstream = relations.upstream;
+    var upstream = formatStream(relations.upstream);
     var resultFrom = relations.resultFrom;
-    if (Util.isString(dnstream)) dnstream = [dnstream];
-    if (Util.isArray(dnstream)) {
-        dnstream.forEach(function (a) {
-            Upstreams[a][alias] = true;
-            Dnstreams[alias][a] = true;
-        });
-    } else {
-        dnstream = [];
-    }
-    if (Util.isFunction(resultIn)) {
-        ResultsIn[alias] = resultIn;
-    }
-    if (Util.isString(upstream)) upstream = [upstream];
-    if (Util.isArray(upstream)) {
-        upstream.forEach(function (a) {
-            Upstreams[alias][a] = true;
-            Dnstreams[a][alias] = true;
-        });
-    } else {
-        upstream = [];
-    }
-    if (Util.isFunction(resultFrom)) {
-        ResultsFrom[alias] = resultFrom;
-    }
+    dnstream.forEach(function (a) {
+        Upstreams[a][alias] = true;
+        Dnstreams[alias][a] = true;
+    });
+    if (Util.isFunction(resultIn)) ResultsIn[alias] = resultIn;
+    upstream.forEach(function (a) {
+        Upstreams[alias][a] = true;
+        Dnstreams[a][alias] = true;
+    });
+    if (Util.isFunction(resultFrom)) ResultsFrom[alias] = resultFrom;
+    var v = obj.target[obj.property];
+    if (Util.hasProperty(obj.target, obj.property)) delete obj.target[obj.property];
     Object.defineProperty(obj.target, obj.property, {
         get: function () {
             if (!ResultsFrom[alias]) return v;
-            return ResultsFrom[alias].apply(root, upstream.map(function (a) { return get(root, a) }));
+            return ResultsFrom[alias].apply(Store, upstream.map(get));
         },
         set: function (_v) {
             if (_v === v) return;
             v = _v;
             ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
             dnstream.forEach(function (a) {
-                if (ResultsFrom[a]) set(root, a, get(root, a));
+                if (ResultsFrom[a]) set(a, get(a));
             });
         },
         enumerable: true
