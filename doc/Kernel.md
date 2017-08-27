@@ -25,3 +25,5 @@
 ## resultFrom, upstream
 
 如果定义了resultFrom取值函数，那么在目标字段取值时，会返回取值函数的执行结果；如果同时定义了upstream上游字段，那么各个上游字段的值会作为取值函数的参数。
+
+定义了resultFrom，也需要在对应的上游字段的Kernel定义中把目标字段作为下游字段。
