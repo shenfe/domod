@@ -73,12 +73,16 @@ function Kernel(root, alias, relations) {
     var upstream = formatStream(relations.upstream);
     var resultFrom = relations.resultFrom;
     dnstream.forEach(function (a) {
+        if (!Upstreams[a]) Upstreams[a] = {};
         Upstreams[a][alias] = true;
+        if (!Dnstreams[alias]) Dnstreams[alias] = {};
         Dnstreams[alias][a] = true;
     });
     if (Util.isFunction(resultIn)) ResultsIn[alias] = resultIn;
     upstream.forEach(function (a) {
+        if (!Upstreams[alias]) Upstreams[alias] = {};
         Upstreams[alias][a] = true;
+        if (!Dnstreams[a]) Dnstreams[a] = {};
         Dnstreams[a][alias] = true;
     });
     if (Util.isFunction(resultFrom)) ResultsFrom[alias] = resultFrom;
@@ -93,7 +97,7 @@ function Kernel(root, alias, relations) {
             if (_v === v) return;
             v = _v;
             ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
-            dnstream.forEach(function (a) {
+            Object.keys(Dnstreams[alias]).forEach(function (a) {
                 if (ResultsFrom[a]) set(a, get(a));
             });
         },

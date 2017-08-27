@@ -3,6 +3,7 @@ import * as Util from './Util'
 var canUseProxy = typeof Proxy === 'function';
 
 var OArray = function (arr, option) {
+    if (Util.isObject(arr) && arguments.length === 1) option = arr;
     if (!Util.isArray(arr)) arr = [];
 
     Object.defineProperty(this, '__data', {
@@ -20,8 +21,12 @@ var OArray = function (arr, option) {
 
     var _this = this;
 
-    ['set', 'push', 'pop', 'unshift', 'shift', 'splice'].forEach(function (e) {
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    eventNames.forEach(function (e) {
         Object.defineProperty(_this, 'on' + e, { value: [] });
+    });
+    eventNames.forEach(function (e) {
+        _this.addEventListener(e, option['on' + e]);
     });
 
     Util.each(arr, function (v, i) {
@@ -92,9 +97,9 @@ OArray.prototype.deleteElement = function () {
 });
 ['pop', 'shift'].forEach(function (f) {
     OArray.prototype[f] = function () {
+        this.dispatchEvent(f, this.__data[this.length - 1]);
         this.deleteElement();
         this.__data[f]();
-        this.dispatchEvent(f);
     };
 });
 
