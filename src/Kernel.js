@@ -5,6 +5,7 @@ var Dnstreams = {};
 var ResultsIn = {};
 var Upstreams = {};
 var ResultsFrom = {};
+var Laziness = {};
 
 function get(ref, root) {
     if (root === undefined) root = Store;
@@ -75,6 +76,7 @@ function Kernel(root, alias, relations) {
     var resultIn = relations.resultIn;
     var upstream = formatStream(relations.upstream);
     var resultFrom = relations.resultFrom;
+    var lazy = !!relations.lazy;
     dnstream.forEach(function (a) {
         if (!Upstreams[a]) Upstreams[a] = {};
         Upstreams[a][alias] = true;
@@ -89,6 +91,8 @@ function Kernel(root, alias, relations) {
         Dnstreams[a][alias] = true;
     });
     if (Util.isFunction(resultFrom)) ResultsFrom[alias] = resultFrom;
+    if (lazy) Laziness[alias] = true;
+
     var v = obj.target[obj.property];
     if (Util.hasProperty(obj.target, obj.property)) delete obj.target[obj.property];
     Object.defineProperty(obj.target, obj.property, {
@@ -101,7 +105,7 @@ function Kernel(root, alias, relations) {
             v = _v;
             ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
             Object.keys(Dnstreams[alias]).forEach(function (a) {
-                if (ResultsFrom[a]) update(a);
+                if (ResultsFrom[a] && !Laziness[a]) update(a);
             });
         },
         enumerable: true
@@ -119,7 +123,8 @@ function isRelationDefinition(obj) {
         dnstream: true,
         resultIn: true,
         upstream: true,
-        resultFrom: true
+        resultFrom: true,
+        lazy: true
     };
     Util.each(obj, function (v, p) {
         if (!specProps[p]) {
