@@ -29,6 +29,12 @@ function set(ref, val, root) {
     if (obj) obj.target[obj.property] = val;
 }
 
+function update(ref, root) {
+    var obj = get(ref, root);
+    if (!obj) return null;
+    return obj.target[obj.property];
+}
+
 function register(root) {
     if (!Util.isObject(root)) return null;
     if (!root.__kernel_root) {
@@ -56,9 +62,6 @@ function formatStream(stream, root) {
 
 /**
  * Kernel constructor function.
- * @param {Object} root                             [description]
- * @param {String} alias                            [description]
- * @param {Object} relations                        [description]
  * @constructor
  */
 function Kernel(root, alias, relations) {
@@ -91,14 +94,14 @@ function Kernel(root, alias, relations) {
     Object.defineProperty(obj.target, obj.property, {
         get: function () {
             if (!ResultsFrom[alias]) return v;
-            return ResultsFrom[alias].apply(Store, upstream.map(get));
+            return ResultsFrom[alias].apply(Store, upstream.map(function (v) { return update(v) }));
         },
         set: function (_v) {
             if (_v === v) return;
             v = _v;
             ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
             Object.keys(Dnstreams[alias]).forEach(function (a) {
-                if (ResultsFrom[a]) set(a, get(a));
+                if (ResultsFrom[a]) update(a);
             });
         },
         enumerable: true
@@ -109,4 +112,53 @@ Kernel.prototype.disable = function () {};
 Kernel.prototype.enable = function () {};
 Kernel.prototype.destroy = function () {};
 
-export default Kernel
+function isRelationDefinition(obj) {
+    if (!Util.isObject(obj)) return false;
+    var r = true;
+    var specProps = {
+        dnstream: true,
+        resultIn: true,
+        upstream: true,
+        resultFrom: true
+    };
+    Util.each(obj, function (v, p) {
+        if (!specProps[p]) {
+            r = false;
+            return false;
+        }
+    });
+    return r;
+}
+
+function flatten(root, onlyWantRelation) {
+    var ext = {};
+    Util.each(root, function (v, p) {
+        if (Util.isObject(v) && !isRelationDefinition(v)) {
+            var f = flatten(v, onlyWantRelation);
+            Util.each(f, function (vv, pp) {
+                ext[p + '.' + pp] = vv;
+            });
+        } else {
+            if (!onlyWantRelation || isRelationDefinition(v))
+                ext[p] = v;
+        }
+    })
+    return ext;
+}
+
+function Relate(obj, relations) {
+    var fr;
+    if (arguments.length === 1) {
+        if (!Util.isObject(obj)) return null;
+        fr = flatten(obj, true);
+    } else if (Util.isObject(relations)) {
+        fr = flatten(relations, true);
+    } else {
+        return null;
+    }
+    Util.each(fr, function (rel, alias) {
+        new Kernel(obj, alias, rel);
+    });
+}
+
+export { Kernel, Relate }
