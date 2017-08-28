@@ -38,5 +38,4 @@ Relate(obj3, {
     }
 })
 
-console.log(obj3.names)
-// console.log(JSON.stringify(obj3))
+console.log(JSON.stringify(obj3))
