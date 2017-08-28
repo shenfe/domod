@@ -1,2 +1,271 @@
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t(e.Kernel={})}(this,function(e){"use strict";function t(e,t){if(void 0===t&&(t=E),!s(t)||!l(e))return null;for(var r=t,n=e.split(".");n.length>=1;){if(1===n.length)return{target:r,property:n[0]};if(r=r[n.shift()],!s(r))return null}return null}function r(e,r){var n=t(e,r);return n?n.target[n.property]:null}function n(e){if(!s(e))return null;if(!e.__kernel_root){var t="kr_"+a();Object.defineProperty(e,"__kernel_root",{value:t}),E[t]=e}return e.__kernel_root}function o(e,t){return(s(e)||l(e))&&(e=[e]),d(e)?e.map(function(e){return s(e)?n(e.root)+"."+e.alias:l(e)?n(t)+"."+e:null}):[]}function u(e,u,i){var f=t(u,e);if(null!=f){u=n(e)+"."+u,Object.defineProperty(this,"__alias",{value:u});var a=o(i.dnstream),c=i.resultIn,l=o(i.upstream),s=i.resultFrom;a.forEach(function(e){g[e]||(g[e]={}),g[e][u]=!0,O[u]||(O[u]={}),O[u][e]=!0}),p(c)&&(h[u]=c),l.forEach(function(e){g[u]||(g[u]={}),g[u][e]=!0,O[e]||(O[e]={}),O[e][u]=!0}),p(s)&&(b[u]=s);var d=f.target[f.property];_(f.target,f.property)&&delete f.target[f.property],Object.defineProperty(f.target,f.property,{get:function(){return b[u]?b[u].apply(E,l.map(function(e){return r(e)})):d},set:function(t){t!==d&&(d=t,h[u]&&h[u].apply(e,[t]),Object.keys(O[u]).forEach(function(e){b[e]&&r(e)}))},enumerable:!0})}}function i(e){if(!s(e))return!1;var t=!0,r={dnstream:!0,resultIn:!0,upstream:!0,resultFrom:!0};return v(e,function(e,n){if(!r[n])return t=!1,!1}),t}function f(e,t){var r={};return v(e,function(e,n){if(s(e)&&!i(e)){var o=f(e,t);v(o,function(e,t){r[n+"."+t]=e})}else t&&!i(e)||(r[n]=e)}),r}var a=function(){var e=0;return function(){return e++}}(),c=function(e){var t=parseInt(e);return!isNaN(t)&&(("number"==typeof e||"string"==typeof e)&&t==e)},l=function(e){return"string"==typeof e},p=function(e){return"function"==typeof e},s=function(e){return"[object Object]"===Object.prototype.toString.call(e)},d=function(e){return"[object Array]"===Object.prototype.toString.call(e)},N=function(e){return e instanceof Node},y=function(e){return e instanceof NamedNodeMap},v=function(e,t,r){if(s(e)){for(var n in e)if(e.hasOwnProperty(n)&&!1===(a=t(e[n],n)))break}else if(d(e))if(r)for(o=e.length-1;o>=0&&!1!==(a=t(e[o],o));o--);else for(var o=0,u=e.length;o<u&&!1!==(a=t(e[o],o));o++);else if(N(e)){var i=!1;switch(e.nodeType){case Node.ELEMENT_NODE:break;case Node.TEXT_NODE:case Node.COMMENT_NODE:case Node.PROCESSING_INSTRUCTION_NODE:case Node.DOCUMENT_NODE:case Node.DOCUMENT_TYPE_NODE:case Node.DOCUMENT_FRAGMENT_NODE:default:i=!0}if(i)return;for(var o=0,f=e.childNodes,u=e.childNodes.length;o<u;o++)t(f[o]),v(f[o],t)}else if(y(e))for(var o=0,u=e.length;o<u;o++){var a=t(e[o].nodeValue,e[o].nodeName);if(!1===a)break}else Util.isFunction(e.forEach)&&e.forEach(t)},_=function(e,t){if(s(e))return e.hasOwnProperty(t);if(d(e)){var r=parseInt(t);return c(t)&&e.length>r&&r>=0}return!1},E={},O={},h={},g={},b={};u.prototype.disable=function(){},u.prototype.enable=function(){},u.prototype.destroy=function(){},e.Kernel=u,e.Relate=function(e,t){var r;if(1===arguments.length){if(!s(e))return null;r=f(e,!0)}else{if(!s(t))return null;r=f(t,!0)}v(r,function(t,r){new u(e,r,t)})},Object.defineProperty(e,"__esModule",{value:!0})});
+(function (global, factory) {
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+	typeof define === 'function' && define.amd ? define(['exports'], factory) :
+	(factory((global.Kernel = {})));
+}(this, (function (exports) { 'use strict';
+
+var gid = (function () {
+    var n = 0;
+    return function () {
+        return n++;
+    };
+})();
+
+var isNumeric = function (v) {
+    var n = parseInt(v);
+    if (isNaN(n)) return false;
+    return (typeof v === 'number' || typeof v === 'string') && n == v;
+};
+
+var isString = function (v) {
+    return typeof v === 'string';
+};
+
+var isFunction = function (v) {
+    return typeof v === 'function';
+};
+
+var isObject = function (v) {
+    return Object.prototype.toString.call(v) === '[object Object]';
+};
+
+var isArray = function (v) {
+    return Object.prototype.toString.call(v) === '[object Array]';
+};
+
+var isNode = function (v) {
+    return v instanceof Node;
+};
+
+var isNamedNodeMap = function (v) {
+    return v instanceof NamedNodeMap;
+};
+
+var each = function (v, func, arrayReverse) {
+    if (isObject(v)) {
+        for (var p in v) {
+            if (!v.hasOwnProperty(p)) continue;
+            var r = func(v[p], p);
+            if (r === false) break;
+        }
+    } else if (isArray(v)) {
+        if (!arrayReverse) {
+            for (var i = 0, len = v.length; i < len; i++) {
+                var r = func(v[i], i);
+                if (r === false) break;
+            }
+        } else {
+            for (var i = v.length - 1; i >= 0; i--) {
+                var r = func(v[i], i);
+                if (r === false) break;
+            }
+        }
+    } else if (isNode(v)) {
+        var ret = false;
+        switch (v.nodeType) {
+            case Node.ELEMENT_NODE:
+                break;
+            case Node.TEXT_NODE:
+            case Node.COMMENT_NODE:
+            case Node.PROCESSING_INSTRUCTION_NODE:
+            case Node.DOCUMENT_NODE:
+            case Node.DOCUMENT_TYPE_NODE:
+            case Node.DOCUMENT_FRAGMENT_NODE:
+            default:
+                ret = true;
+        }
+        if (ret) return;
+        for (var i = 0, childNodes = v.childNodes, len = v.childNodes.length; i < len; i++) {
+            func(childNodes[i]);
+            each(childNodes[i], func);
+        }
+    } else if (isNamedNodeMap(v)) {
+        for (var i = 0, len = v.length; i < len; i++) {
+            var r = func(v[i]['nodeValue'], v[i]['nodeName']);
+            if (r === false) break;
+        }
+    } else if (Util.isFunction(v.forEach)) {
+        v.forEach(func);
+    }
+};
+
+var hasProperty = function (val, p) {
+    if (isObject(val)) {
+        return val.hasOwnProperty(p);
+    } else if (isArray(val)) {
+        var n = parseInt(p);
+        return isNumeric(p) && val.length > n && n >= 0;
+    }
+    return false;
+};
+
+var Store = {};
+var Dnstreams = {};
+var ResultsIn = {};
+var Upstreams = {};
+var ResultsFrom = {};
+var Laziness = {};
+
+function get(ref, root) {
+    if (root === undefined) root = Store;
+    if (!isObject(root) || !isString(ref)) return null;
+    var node = root;
+    var refs = ref.split('.');
+    while (refs.length >= 1) {
+        if (refs.length === 1) {
+            return {
+                target: node,
+                property: refs[0]
+            };
+        }
+        node = node[refs.shift()];
+        if (!isObject(node)) return null;
+    }
+    return null;
+}
+
+function update(ref, root) {
+    var obj = get(ref, root);
+    if (!obj) return null;
+    return obj.target[obj.property];
+}
+
+function register(root) {
+    if (!isObject(root)) return null;
+    if (!root.__kernel_root) {
+        var id = 'kr_' + gid();
+        Object.defineProperty(root, '__kernel_root', {
+            value: id
+        });
+        Store[id] = root;
+    }
+    return root.__kernel_root;
+}
+
+function formatStream(stream, root) {
+    if (isObject(stream) || isString(stream)) stream = [stream];
+    if (isArray(stream)) {
+        return stream.map(function (a) {
+            if (isObject(a)) return register(a.root) + '.' + a.alias;
+            if (isString(a)) return register(root) + '.' + a;
+            return null;
+        });
+    } else {
+        return [];
+    }
+}
+
+/**
+ * Kernel constructor function.
+ * @constructor
+ */
+function Kernel(root, alias, relations) {
+    var obj = get(alias, root);
+    if (obj == null) return;
+    alias = register(root) + '.' + alias;
+    Object.defineProperty(this, '__alias', {
+        value: alias
+    });
+    var dnstream = formatStream(relations.dnstream);
+    var resultIn = relations.resultIn;
+    var upstream = formatStream(relations.upstream);
+    var resultFrom = relations.resultFrom;
+    var lazy = !!relations.lazy;
+    dnstream.forEach(function (a) {
+        if (!Upstreams[a]) Upstreams[a] = {};
+        Upstreams[a][alias] = true;
+        if (!Dnstreams[alias]) Dnstreams[alias] = {};
+        Dnstreams[alias][a] = true;
+    });
+    if (isFunction(resultIn)) ResultsIn[alias] = resultIn;
+    upstream.forEach(function (a) {
+        if (!Upstreams[alias]) Upstreams[alias] = {};
+        Upstreams[alias][a] = true;
+        if (!Dnstreams[a]) Dnstreams[a] = {};
+        Dnstreams[a][alias] = true;
+    });
+    if (isFunction(resultFrom)) ResultsFrom[alias] = resultFrom;
+    if (lazy) Laziness[alias] = true;
+
+    var v = obj.target[obj.property];
+    if (hasProperty(obj.target, obj.property)) delete obj.target[obj.property];
+    Object.defineProperty(obj.target, obj.property, {
+        get: function () {
+            if (!ResultsFrom[alias]) return v;
+            return ResultsFrom[alias].apply(Store, upstream.map(function (v) { return update(v) }));
+        },
+        set: function (_v) {
+            if (_v === v) return;
+            v = _v;
+            ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
+            Dnstreams[alias] && Object.keys(Dnstreams[alias]).forEach(function (a) {
+                if (ResultsFrom[a] && !Laziness[a]) update(a);
+            });
+        },
+        enumerable: true
+    });
+}
+
+Kernel.prototype.disable = function () {};
+Kernel.prototype.enable = function () {};
+Kernel.prototype.destroy = function () {};
+
+function isRelationDefinition(obj) {
+    if (!isObject(obj)) return false;
+    var r = true;
+    var specProps = {
+        dnstream: true,
+        resultIn: true,
+        upstream: true,
+        resultFrom: true,
+        lazy: true
+    };
+    each(obj, function (v, p) {
+        if (!specProps[p]) {
+            r = false;
+            return false;
+        }
+    });
+    return r;
+}
+
+function flatten(root, onlyWantRelation) {
+    var ext = {};
+    each(root, function (v, p) {
+        if (isObject(v) && !isRelationDefinition(v)) {
+            var f = flatten(v, onlyWantRelation);
+            each(f, function (vv, pp) {
+                ext[p + '.' + pp] = vv;
+            });
+        } else {
+            if (!onlyWantRelation || isRelationDefinition(v))
+                ext[p] = v;
+        }
+    });
+    return ext;
+}
+
+function Relate(obj, relations) {
+    var fr;
+    if (arguments.length === 1) {
+        if (!isObject(obj)) return null;
+        fr = flatten(obj, true);
+    } else if (isObject(relations)) {
+        fr = flatten(relations, true);
+    } else {
+        return null;
+    }
+    each(fr, function (rel, alias) {
+        new Kernel(obj, alias, rel);
+    });
+
+    return obj;
+}
+
+exports.Kernel = Kernel;
+exports.Relate = Relate;
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+})));
 //# sourceMappingURL=Kernel.js.map

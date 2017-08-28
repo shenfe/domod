@@ -104,7 +104,7 @@ function Kernel(root, alias, relations) {
             if (_v === v) return;
             v = _v;
             ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
-            Object.keys(Dnstreams[alias]).forEach(function (a) {
+            Dnstreams[alias] && Object.keys(Dnstreams[alias]).forEach(function (a) {
                 if (ResultsFrom[a] && !Laziness[a]) update(a);
             });
         },
@@ -164,6 +164,8 @@ function Relate(obj, relations) {
     Util.each(fr, function (rel, alias) {
         new Kernel(obj, alias, rel);
     });
+
+    return obj;
 }
 
 export { Kernel, Relate }

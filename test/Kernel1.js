@@ -39,3 +39,24 @@ Relate(obj3, {
 })
 
 console.log(JSON.stringify(obj3))
+
+const obj4 = Relate({
+    'text': {
+        resultFrom: () => {
+            return `${obj1.name} is ${obj1.age} years old, and ${obj2.name} is ${obj2.age} years old`
+        }
+    },
+    'grow': {
+        resultIn: n => {
+            obj1.age += n
+            obj2.age += n
+        }
+    }
+});
+
+console.log(obj4.text)
+
+obj4.grow = 1
+console.log(obj4.text)
+obj4.grow = 2
+console.log(obj4.text)

@@ -7,6 +7,6 @@ module.exports = {
     sourceMap: true,
     dest: 'dist/Kernel.js',
     plugins: [
-        uglify()
+        // uglify()
     ]
 };

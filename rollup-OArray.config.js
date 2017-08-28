@@ -7,6 +7,6 @@ module.exports = {
     sourceMap: true,
     dest: 'dist/ObservableArray.js',
     plugins: [
-        uglify()
+        // uglify()
     ]
 };
