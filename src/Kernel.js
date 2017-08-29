@@ -11,7 +11,7 @@ var KernelStatus = {};
 
 function get(ref, root) {
     if (root === undefined) root = Store;
-    if (!Util.isObject(root) || !Util.isString(ref)) return null;
+    if ((!Util.isObject(root) && !Util.isNode(root)) || !Util.isString(ref)) return null;
     var node = root;
     var refs = ref.split('.');
     while (refs.length >= 1) {
@@ -22,7 +22,7 @@ function get(ref, root) {
             };
         }
         node = node[refs.shift()];
-        if (!Util.isObject(node)) return null;
+        if (!Util.isObject(node) && !Util.isNode(node)) return null;
     }
     return null;
 }
@@ -48,12 +48,16 @@ function fullpathOf(ref, root) {
 }
 
 function register(root) {
-    if (!Util.isObject(root)) return null;
+    if (!Util.isObject(root) && !Util.isNode(root)) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + Util.gid();
-        Object.defineProperty(root, '__kernel_root', {
-            value: id
-        });
+        if (!Util.isNode(root)) {
+            Object.defineProperty(root, '__kernel_root', {
+                value: id
+            });
+        } else {
+            root.__kernel_root = id;
+        }
         Store[id] = root;
     }
     return root.__kernel_root;
@@ -179,6 +183,7 @@ function isRelationDefinition(obj) {
     if (!Util.isObject(obj)) return false;
     var r = true;
     var specProps = {
+        __isRelation: 2, // !
         dnstream: 1, // *
         resultIn: 1, // *
         upstream: 1, // *
@@ -188,10 +193,16 @@ function isRelationDefinition(obj) {
     };
     var count = 0;
     Util.each(obj, function (v, p) {
+        if (specProps[p] === 2) {
+            r = true;
+            count++;
+            return false;
+        }
         if (!specProps[p]) {
             r = false;
             return false;
-        } else if (specProps[p] === 1) {
+        }
+        if (specProps[p] === 1) {
             count++;
         }
     });
