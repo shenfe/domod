@@ -97,7 +97,7 @@ OArray.prototype.deleteElement = function () {
 });
 ['pop', 'shift'].forEach(function (f) {
     OArray.prototype[f] = function () {
-        this.dispatchEvent(f, this.__data[this.length - 1]);
+        this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
         this.deleteElement();
         this.__data[f]();
     };
