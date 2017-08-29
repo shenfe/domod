@@ -12,7 +12,8 @@ const obj2 = {
 
 const obj3 = {
     names: [],
-    ageTotal: 0
+    ageTotal: 0,
+    growth: undefined
 }
 
 Relate(obj3, {
@@ -47,6 +48,7 @@ const obj4 = Relate({
         }
     },
     'grow': {
+        value: 'init',
         resultIn: n => {
             obj1.age += n
             obj2.age += n
@@ -54,9 +56,31 @@ const obj4 = Relate({
     }
 });
 
+// let k1 = new Kernel(obj4, 'grow', {
+//     dnstream: [{
+//         root: obj3,
+//         alias: 'growth'
+//     }]
+// })
+let k2 = new Kernel(obj3, 'growth', {
+    resultFrom: v => `grow by ${v}`,
+    upstream: [{
+        root: obj4,
+        alias: 'grow'
+    }]
+})
+k2.disable()
+console.log(obj3.growth)
+
 console.log(obj4.text)
+
+console.log(obj4.grow)
 
 obj4.grow = 1
 console.log(obj4.text)
+console.log(obj3.growth)
+
+k2.enable()
 obj4.grow = 2
 console.log(obj4.text)
+console.log(obj3.growth)

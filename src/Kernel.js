@@ -6,6 +6,8 @@ var ResultsIn = {};
 var Upstreams = {};
 var ResultsFrom = {};
 var Laziness = {};
+var PropKernelTable = {};
+var KernelStatus = {};
 
 function get(ref, root) {
     if (root === undefined) root = Store;
@@ -61,78 +63,129 @@ function formatStream(stream, root) {
     }
 }
 
+function propKernelOrder(proppath) {
+    if (PropKernelTable[proppath] === undefined) return 0;
+    return PropKernelTable[proppath].length;
+}
+
 /**
  * Kernel constructor function.
  * @constructor
  */
-function Kernel(root, alias, relations) {
-    var obj = get(alias, root);
+function Kernel(root, path, relations) {
+    var obj = get(path, root);
     if (obj == null) return;
-    alias = register(root) + '.' + alias;
-    Object.defineProperty(this, '__alias', {
-        value: alias
+    var proppath = register(root) + '.' + path;
+    var __kid = proppath + '#' + propKernelOrder(proppath);
+    Object.defineProperty(this, '__kid', {
+        value: __kid
     });
+    KernelStatus[this.__kid] = 1;
+    var value = obj.target[obj.property];
+    if (PropKernelTable[proppath] === undefined) {
+        PropKernelTable[proppath] = [];
+        if (Util.hasProperty(obj.target, obj.property))
+            delete obj.target[obj.property];
+    }
+    PropKernelTable[proppath].push(1);
+
     var dnstream = formatStream(relations.dnstream);
     var resultIn = relations.resultIn;
     var upstream = formatStream(relations.upstream);
     var resultFrom = relations.resultFrom;
     var lazy = !!relations.lazy;
-    dnstream.forEach(function (a) {
-        if (!Upstreams[a]) Upstreams[a] = {};
-        Upstreams[a][alias] = true;
-        if (!Dnstreams[alias]) Dnstreams[alias] = {};
-        Dnstreams[alias][a] = true;
+    if (Util.hasProperty(relations, 'value')) {
+        value = relations.value;
+    }
+    if (!Dnstreams[proppath]) Dnstreams[proppath] = {};
+    dnstream.forEach(function (p) {
+        if (!Upstreams[p]) Upstreams[p] = {};
+        if (!Upstreams[p][proppath]) Upstreams[p][proppath] = {};
+        Upstreams[p][proppath][__kid] = 1;
+        if (!Dnstreams[proppath][p]) Dnstreams[proppath][p] = {};
+        Dnstreams[proppath][p][__kid] = 1;
     });
-    if (Util.isFunction(resultIn)) ResultsIn[alias] = resultIn;
-    upstream.forEach(function (a) {
-        if (!Upstreams[alias]) Upstreams[alias] = {};
-        Upstreams[alias][a] = true;
-        if (!Dnstreams[a]) Dnstreams[a] = {};
-        Dnstreams[a][alias] = true;
+    if (!ResultsIn[proppath]) ResultsIn[proppath] = [];
+    ResultsIn[proppath].push(Util.isFunction(resultIn) ? resultIn : null);
+    if (!Upstreams[proppath]) Upstreams[proppath] = {};
+    upstream.forEach(function (p) {
+        if (!Upstreams[proppath][p]) Upstreams[proppath][p] = {};
+        Upstreams[proppath][p][__kid] = 1;
+        if (!Dnstreams[p]) Dnstreams[p] = {};
+        if (!Dnstreams[p][proppath]) Dnstreams[p][proppath] = {};
+        Dnstreams[p][proppath][__kid] = 1;
     });
-    if (Util.isFunction(resultFrom)) ResultsFrom[alias] = resultFrom;
-    if (lazy) Laziness[alias] = true;
+    if (Util.isFunction(resultFrom)) ResultsFrom[proppath] = {
+        f: resultFrom,
+        k: this.__kid
+    };
+    if (lazy) Laziness[proppath] = true;
 
-    var v = obj.target[obj.property];
-    if (Util.hasProperty(obj.target, obj.property)) delete obj.target[obj.property];
-    Object.defineProperty(obj.target, obj.property, {
-        get: function () {
-            if (!ResultsFrom[alias]) return v;
-            return ResultsFrom[alias].apply(Store, upstream.map(function (v) { return update(v) }));
-        },
-        set: function (_v) {
-            if (_v === v) return;
-            v = _v;
-            ResultsIn[alias] && ResultsIn[alias].apply(root, [_v]);
-            Dnstreams[alias] && Object.keys(Dnstreams[alias]).forEach(function (a) {
-                if (ResultsFrom[a] && !Laziness[a]) update(a);
-            });
-        },
-        enumerable: true
-    });
+    if (PropKernelTable[proppath].length === 1) {
+        Object.defineProperty(obj.target, obj.property, {
+            get: function () {
+                if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
+                    value = ResultsFrom[proppath].f.apply(Store, upstream.map(function (p) { return update(p) }));
+                }
+                return value;
+            },
+            set: function (val) {
+                if (val === value) return;
+                value = val;
+                ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                });
+                if (Dnstreams[proppath]) {
+                    Util.each(Dnstreams[proppath], function (kmap, ds) {
+                        var toUpdateDnstream = false;
+                        Util.each(kmap, function (v, k) {
+                            if (KernelStatus[k] !== 0) {
+                                toUpdateDnstream = true;
+                                return false;
+                            }
+                        });
+                        if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
+                            update(ds);
+                    });
+                }
+            },
+            // configurable: true,
+            enumerable: true
+        });
+    }
 }
 
-Kernel.prototype.disable = function () {};
-Kernel.prototype.enable = function () {};
-Kernel.prototype.destroy = function () {};
+Kernel.prototype.disable = function () {
+    KernelStatus[this.__kid] = 0;
+};
+Kernel.prototype.enable = function () {
+    KernelStatus[this.__kid] = 1;
+};
+Kernel.prototype.destroy = function () {
+    // TODO
+};
 
 function isRelationDefinition(obj) {
     if (!Util.isObject(obj)) return false;
     var r = true;
     var specProps = {
-        dnstream: true,
-        resultIn: true,
-        upstream: true,
-        resultFrom: true,
-        lazy: true
+        dnstream: 1, // *
+        resultIn: 1, // *
+        upstream: 1, // *
+        resultFrom: 1, // *
+        lazy: true,
+        value: true
     };
+    var count = 0;
     Util.each(obj, function (v, p) {
         if (!specProps[p]) {
             r = false;
             return false;
+        } else if (specProps[p] === 1) {
+            count++;
         }
     });
-    return r;
+    return r && (count > 0);
 }
 
 function flatten(root, onlyWantRelation) {
@@ -161,8 +214,8 @@ function Relate(obj, relations) {
     } else {
         return null;
     }
-    Util.each(fr, function (rel, alias) {
-        new Kernel(obj, alias, rel);
+    Util.each(fr, function (rel, p) {
+        new Kernel(obj, p, rel);
     });
 
     return obj;

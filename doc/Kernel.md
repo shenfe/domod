@@ -7,7 +7,7 @@
 | 参数 | 含义 |
 | :---: | :---: |
 | root | 目标对象 |
-| alias | 目标字段属性名称（路径） |
+| path | 目标字段属性名称（路径） |
 | relations | 目标字段关联事物 |
 | relations.resultIn | 赋值影响 |
 | relations.dnstream | 关联的下游字段 |
