@@ -8,8 +8,7 @@ import Kernel from './Kernel'
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} relation            [description]
  * @return {[type]}                     [description]
- * @note   如果有relation，则认为是active模式，否则是passive模式；active模式会主动去
- *         遍历relation的属性进行绑定；passive模式会遍历$el的DOM属性
+ * @note   如果有relation，则认为是active模式，否则是passive模式.
  */
 function Bind(ref, $el, relation) {
     if (!Util.isObject(ref) || !Util.isNode($el)) return;
@@ -36,7 +35,7 @@ function Bind(ref, $el, relation) {
                     // TODO
                     break;
                 case 'show':
-                    
+
                     applyRelation(ref, v)(function (v) {
                         $el.style.display = v ? 'block' : 'none';
                     });

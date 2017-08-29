@@ -34,6 +34,7 @@ var isArray = function (v) {
 };
 
 var isNode = function (v) {
+    if (typeof Node !== 'function') return false;
     return v instanceof Node;
 };
 
@@ -129,7 +130,16 @@ function get(ref, root) {
 function update(ref, root) {
     var obj = get(ref, root);
     if (!obj) return null;
-    return obj.target[obj.property];
+    var proppath = fullpathOf(ref, root);
+    if (!ResultsFrom[proppath]) return obj.target[obj.property];
+    var value = ResultsFrom[proppath].f.apply(Store, ResultsFrom[proppath].deps.map(function (p) { return update(p) }));
+    obj.target[obj.property] = value;
+    return value;
+}
+
+function fullpathOf(ref, root) {
+    if (root === undefined) return ref;
+    return register(root) + '.' + ref;
 }
 
 function register(root) {
@@ -211,15 +221,16 @@ function Kernel(root, path, relations) {
     });
     if (isFunction(resultFrom)) ResultsFrom[proppath] = {
         f: resultFrom,
-        k: this.__kid
+        k: this.__kid,
+        deps: upstream
     };
     if (lazy) Laziness[proppath] = true;
 
-    if (PropKernelTable[proppath].length === 1) {
+    if (PropKernelTable[proppath].length === 1 && !isNode(obj.target)) {
         Object.defineProperty(obj.target, obj.property, {
             get: function () {
                 if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
-                    value = ResultsFrom[proppath].f.apply(Store, upstream.map(function (p) { return update(p) }));
+                    return update(proppath);
                 }
                 return value;
             },

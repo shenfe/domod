@@ -52,6 +52,7 @@ var isDirectInstance = function (v, creator) {
 };
 
 var isNode = function (v) {
+    if (typeof Node !== 'function') return false;
     return v instanceof Node;
 };
 
