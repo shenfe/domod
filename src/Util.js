@@ -118,6 +118,20 @@ var each = function (v, func, arrayReverse) {
     }
 };
 
+var eachIndexOf = function (str, pat) {
+    var p0 = 0, p1;
+    var len = str.length;
+    var r = [];
+    while (p0 < len) {
+        p1 = str.indexOf(pat, p0);
+        if (p1 < len) {
+            r.push(p1);
+            p0 = p1 + pat.length;
+        }
+    }
+    return r;
+};
+
 var eachUnique = function (arr, func) {
     if (!isArray(arr)) return;
     var map = {};
@@ -244,6 +258,21 @@ var extend = function (dest, srcs, clean) {
     return dest;
 };
 
+var allRefs = function (obj) {
+    var refs = {};
+    each(obj, function (v, p) {
+        if (isObject(v)) {
+            var f = allRefs(v);
+            each(f, function (vv, pp) {
+                refs[p + '.' + pp] = vv;
+            });
+        } else {
+            refs[p] = v;
+        }
+    })
+    return Object.keys(refs);
+};
+
 export {
     gid,
     isBoolean,
@@ -261,6 +290,7 @@ export {
     isEventName,
     isCSSSelector,
     each,
+    eachIndexOf,
     eachUnique,
     unique,
     clone,
@@ -268,5 +298,6 @@ export {
     clear,
     shrinkArray,
     touchLeaves,
-    extend
+    extend,
+    allRefs
 }

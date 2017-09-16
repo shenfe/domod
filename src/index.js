@@ -4,13 +4,13 @@ import Kernel from './Kernel'
 
 /**
  * Bind data to DOM.
- * @param  {Object} ref                 [description]
  * @param  {HTMLElement} $el            [description]
+ * @param  {Object} ref                 [description]
  * @param  {Object} relation            [description]
  * @return {[type]}                     [description]
  * @note   如果有relation，则认为是active模式，否则是passive模式.
  */
-function Bind(ref, $el, relation) {
+function Bind($el, ref, relation) {
     if (!Util.isObject(ref) || !Util.isNode($el)) return;
 
     var _this = this;
@@ -32,19 +32,9 @@ function Bind(ref, $el, relation) {
         Util.each(relation, function (v, p) {
             switch (p) {
                 case 'value':
-                    // TODO
-                    break;
-                case 'show':
-
-                    applyRelation(ref, v)(function (v) {
-                        $el.style.display = v ? 'block' : 'none';
-                    });
+                    
                     break;
                 case 'style':
-                    applyRelation(ref, v)(function (v) {
-                        $el['cssText'] = v;
-                    });
-                    break;
                 case 'innerText':
                 case 'innerHTML':
                 case 'className':
@@ -60,7 +50,7 @@ function Bind(ref, $el, relation) {
                     } else if (Util.isCSSSelector(p)) { /* CSS Selector */
                         var children = Array.prototype.slice.call($el.querySelectorAll(p), 0);
                         Util.each(children, function (dom) {
-                            Bind(ref, dom, v);
+                            Bind(dom, ref, v);
                         });
                     } else { /* Attribute */
                         applyRelation(ref, v)(function (v) {
@@ -77,11 +67,9 @@ function Bind(ref, $el, relation) {
                 switch (name) {
                     case 'value':
                         break;
-                    case 'show':
-                        break;
-                    case 'text':
-                        break;
-                    case 'html':
+                    case 'innerText':
+                    case 'innerHTML':
+                        new Kernel($el, name, relationFromTmplToRef(value, ref));
                         break;
                     case 'class':
                         break;
@@ -94,12 +82,51 @@ function Bind(ref, $el, relation) {
                 }
             });
             Util.each($el, function (node) {
-                Bind(ref, node);
+                Bind(node, ref);
             });
         } else if ($el.nodeType === Node.TEXT_NODE) {
-            // TODO
+            var tmpl = tmplInText($el.nodeValue);
+            new Kernel($el, 'nodeValue', relationFromTmplToRef(tmpl, ref, function () {
+                return DefaultConf.tmplEngine.parseNodeValue($el.nodeValue, ref);
+            }));
         }
     }
+}
+
+/**
+ * Get template expression strings in text.
+ * @param {String} text 
+ */
+function tmplInText(text) {
+    var reg = /{{([^{}]*)}}/ig;
+    return text.match(reg).map(function (p) {
+        return reg.exec(p)[1];
+    }).join(';');
+}
+
+/**
+ * Get relations from a template string to the data.
+ * @param {String}      tmpl 
+ * @param {Object}      ref 
+ * @param {Function}    resultFrom 
+ */
+function relationFromTmplToRef(tmpl, ref, resultFrom) {
+    var subData = {};
+    Util.each(DefaultConf.tmplEngine.parseDeps(tmpl, ref), function (r) {
+        subData[r] = ref[r];
+    });
+    var deps = Util.allRefs(subData).map(function (alias) {
+        return {
+            root: ref,
+            alias: alias
+        };
+    });
+    return {
+        upstream: deps,
+        resultFrom: resultFrom || function () {
+            return DefaultConf.tmplEngine.evaluate(tmpl, ref);
+        }
+    };
 }
 
 /**
@@ -109,7 +136,7 @@ function Bind(ref, $el, relation) {
  * @param       {[type]} relation [description]
  * @constructor
  */
-function Unbind(ref, $el, relation) {
+function Unbind($el, ref, relation) {
     // TODO
 }
 
@@ -119,19 +146,28 @@ function Unbind(ref, $el, relation) {
  */
 var DefaultConf = {
     attrPrefix: 'm-',
-    refSeparator: '/',
-    tmplGrammer: 'dollarbrace',
     tmplEngine: {
-        parseDeps: function (tmpl) {
-
+        parseDeps: function (str, ref) {
+            var props = Object.keys(ref);
+            var deps = [];
+            props.forEach(function (p) {
+                var ii = Util.eachIndexOf(str, p);
+                Util.each(ii, function (i) {
+                    if ((str[i - 1] === undefined || /[^0-9a-zA-Z$_.]/.test(str[i - 1]))
+                        && (str[i + p.length] === undefined || /[^0-9a-zA-Z$_]/.test(str[i + p.length]))) {
+                        deps.push(p);
+                        return false;
+                    }
+                });
+            });
+            return deps;
         },
-        classParser: function () {},
-        styleParser: function () {},
-        eventParser: function () {},
-        attrValueParser: function () {},
-        textValueParser: function (tmpl, executor) {
-            return tmpl.replace(/{([^{}]*)}/ig, function (match, p1, offset, string) {
-                return executor(p1);
+        evaluate: function (str, ref) {
+            return (new Function(Object.keys(ref).join(','), 'return ' + str)).apply(ref, Object.values(ref));
+        },
+        parseNodeValue: function (text, ref) {
+            return text.replace(/{{([^{}]*)}}/ig, function (match, p1, offset, string) {
+                return DefaultConf.tmplEngine.evaluate(p1, ref);
             });
         }
     }
@@ -146,7 +182,7 @@ DMD_Constructor: {
     };
 
     DMD.prototype.bind = function (ref, relation) {
-        return Bind(ref, this.$el, relation);
+        return Bind(this.$el, ref, relation);
     };
 }
 
