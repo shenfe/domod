@@ -93,7 +93,7 @@ function Bind($el, ref, relation) {
                 Bind(node, ref);
             });
         } else if ($el.nodeType === Node.TEXT_NODE) {
-            var expr = parseExprsInRawText($el.nodeValue);
+            var expr = parseExprsInRawText($el.nodeValue).join(';');
             new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
                 return evaluateRawTextWithTmpl($el.nodeValue, ref);
             }));
@@ -164,7 +164,7 @@ function parseRefsInExpr(expr) {
 /**
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
- * @return {String}         [description]
+ * @return {Array<String>}  [description]
  * @example 'My name is {{name}}. I\'m {{age}} years old.' => ['name', 'age']
  */
 function parseExprsInRawText(text) {
@@ -174,7 +174,7 @@ function parseExprsInRawText(text) {
         exprs.push(p1);
         return '';
     });
-    return exprs.join(';');
+    return exprs;
 }
 
 /**
