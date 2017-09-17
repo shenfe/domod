@@ -61,8 +61,8 @@ var isNamedNodeMap = function (v) {
 };
 
 var isEventName = function (v) {
-    if (!isString(v)) return false;
-    return v.startsWith('on'); // TODO
+    if (!isString(v) || !v.startsWith('on')) return false;
+    return v.substr(2); // TODO
 };
 
 var isCSSSelector = function (v) {
@@ -259,19 +259,72 @@ var extend = function (dest, srcs, clean) {
 };
 
 var allRefs = function (obj) {
-    var refs = {};
+    var refs = [];
     each(obj, function (v, p) {
         if (isObject(v)) {
             var f = allRefs(v);
             each(f, function (vv, pp) {
-                refs[p + '.' + pp] = vv;
+                refs.push(p + '.' + pp);
             });
         } else {
-            refs[p] = v;
+            refs.push(p);
         }
     })
-    return Object.keys(refs);
+    return refs;
 };
+
+var refData = function (root, refPath, value) {
+    var toSet = arguments.length >= 3;
+    var v = root;
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+
+    if (!toSet) {
+        while (paths.length) {
+            if (isBasic(v)) return undefined;
+            v = v[path.shift()];
+        }
+        return v;
+    } else {
+        while (paths.length) {
+            if (isBasic(v)) return undefined;
+            if (paths.length === 1) {
+                v[path.shift()] = value;
+            } else {
+                v = v[path.shift()];
+            }
+        }
+        return value;
+    }
+};
+
+function addEvent($el, eventName, handler, useCapture) {
+    if ($el.addEventListener) {
+        $el.addEventListener(eventName, handler, !!useCapture);
+    } else {
+        if (eventName === 'input') {
+            eventName = 'propertychange';
+        }
+        $el.attachEvent('on' + eventName, handler);
+    }
+}
+
+function flatten(root, objectFilter, clean) {
+    objectFilter = objectFilter || function () { return true; };
+    var ext = {};
+    each(root, function (v, p) {
+        if (isObject(v) && !objectFilter(v)) {
+            var f = flatten(v, objectFilter, clean);
+            each(f, function (vv, pp) {
+                ext[p + '.' + pp] = vv;
+            });
+        } else {
+            if (objectFilter(v) || !clean)
+                ext[p] = v;
+        }
+    })
+    return ext;
+}
 
 export {
     gid,
@@ -299,5 +352,8 @@ export {
     shrinkArray,
     touchLeaves,
     extend,
-    allRefs
+    allRefs,
+    refData,
+    addEvent,
+    flatten
 }

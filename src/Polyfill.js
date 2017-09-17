@@ -191,4 +191,9 @@
         };
     }
 
+    // Object.keys
+    // Object.values
+    // String.prototype.startsWith
+    // String.prototype.endsWith
+    // String.prototype.trim
 })();

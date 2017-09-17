@@ -14,6 +14,9 @@ function Bind($el, ref, relation) {
     if (!Util.isObject(ref) || !Util.isNode($el)) return;
 
     var _this = this;
+    if (!_this.defaults) {
+        _this.defaults = DefaultConf;
+    }
 
     /**
      * 绑定/渲染模式
@@ -46,7 +49,7 @@ function Bind($el, ref, relation) {
                     var pNum = parseInt(p);
                     if (!isNaN(pNum)) { /* Node Index */
                     } else if (Util.isEventName(p)) { /* Event */
-                        $el.addEventListener(p, v, false);
+                        Util.addEvent($el, p.substr(2), v, false);
                     } else if (Util.isCSSSelector(p)) { /* CSS Selector */
                         var children = Array.prototype.slice.call($el.querySelectorAll(p), 0);
                         Util.each(children, function (dom) {
@@ -62,20 +65,25 @@ function Bind($el, ref, relation) {
     } else {
         if ($el.nodeType === Node.ELEMENT_NODE) {
             Util.each($el.attributes, function (value, name) {
-                if (!name.startsWith(_this.attrPrefix)) return;
-                name = name.substr(_this.attrPrefix.length);
+                if (!name.startsWith(_this.defaults.attrPrefix)) return;
+                name = name.substr(_this.defaults.attrPrefix.length);
                 switch (name) {
                     case 'value':
+                        Util.addEvent($el, 'input', function (e) {
+                            Util.refData(ref, value, this.value);
+                        }, false);
+                        new Kernel($el, name, relationFromExprToRef(value, ref));
                         break;
                     case 'innerText':
                     case 'innerHTML':
-                        new Kernel($el, name, relationFromTmplToRef(value, ref));
+                        new Kernel($el, name, relationFromExprToRef(value, ref));
                         break;
                     case 'class':
                         break;
                     case 'style':
                         break;
                     default:
+                        var eventName
                         if (Util.isEventName(name)) { /* Event */
                         } else { /* Attribute */
                         }
@@ -85,54 +93,121 @@ function Bind($el, ref, relation) {
                 Bind(node, ref);
             });
         } else if ($el.nodeType === Node.TEXT_NODE) {
-            var tmpl = tmplInText($el.nodeValue);
-            new Kernel($el, 'nodeValue', relationFromTmplToRef(tmpl, ref, function () {
-                return DefaultConf.tmplEngine.parseNodeValue($el.nodeValue, ref);
+            var expr = parseExprsInRawText($el.nodeValue);
+            new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
+                return evaluateRawTextWithTmpl($el.nodeValue, ref);
             }));
         }
     }
 }
 
 /**
- * Get template expression strings in text.
- * @param {String} text 
+ * Evaluate an expression with a data object.
+ * @param {String} expr 
+ * @param {Object} ref 
+ * @return {*}
  */
-function tmplInText(text) {
-    var reg = /{{([^{}]*)}}/ig;
-    return text.match(reg).map(function (p) {
-        return reg.exec(p)[1];
-    }).join(';');
+function evaluateExpression(expr, ref) {
+    expr = replaceTmplInStrLiteral(expr);
+    var params = Object.keys(ref);
+    var args = Object.values(ref);
+    Util.each(args, function (v, i) {
+        if (Util.isFunction(v))
+            args[i] = v.bind(ref);
+    });
+    var result = null;
+    try {
+        result = (new Function(params.join(','), 'return ' + expr)).apply(ref, args);
+    } catch (e) {}
+    return result;
 }
 
 /**
- * Get relations from a template string to the data.
- * @param {String}      tmpl 
+ * Fix template strings in a string literal to JavaScript string-concat expressions.
+ * @param {String} str 
+ * @return {String}
+ * @example "'My name is {{name}}.'" => "'My name is ' + (name) + '.'"
+ */
+function replaceTmplInStrLiteral(str) {
+    var reg = /{{([^{}]*)}}/g;
+    return str.replace(reg, function (match, p1) {
+        return '\' + (' + p1 + ') + \'';
+    });
+}
+
+/**
+ * Evaluate a raw text with template expressions.
+ * @param {String} text 
+ * @param {Object} ref 
+ * @return {String}
+ * @example ('My name is {{name}}.', { name: 'Tom' }) => 'My name is Tom.'
+ */
+function evaluateRawTextWithTmpl(text, ref) {
+    var reg = /{{([^{}]*)}}/g;
+    var result = text.replace(reg, function (match, p1) {
+        return evaluateExpression(p1, ref);
+    });
+    return result;
+}
+
+/**
+ * Parse reference paths from an expression string.
+ * @param {String} expr 
+ * @return {Array<String>}
+ */
+function parseRefsInExpr(expr) {
+    expr = ';' + expr + ';';
+    var reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+    return expr.match(reg);
+}
+
+/**
+ * Parse template expression strings from a raw text such as a text node value.
+ * @param {String} text     [description]
+ * @return {String}         [description]
+ */
+function parseExprsInRawText(text) {
+    var reg = /{{([^{}]*)}}/g;
+    var exprs = [];
+    text.replace(reg, function (match, p1) {
+        exprs.push(p1);
+        return '';
+    });
+    return exprs.join(';');
+}
+
+/**
+ * Get relations from an expression string to the data.
+ * @param {String}      expr 
  * @param {Object}      ref 
  * @param {Function}    resultFrom 
+ * @return {Object}
  */
-function relationFromTmplToRef(tmpl, ref, resultFrom) {
-    var subData = {};
-    Util.each(DefaultConf.tmplEngine.parseDeps(tmpl, ref), function (r) {
-        subData[r] = ref[r];
-    });
-    var deps = Util.allRefs(subData).map(function (alias) {
-        return {
-            root: ref,
-            alias: alias
-        };
-    });
+function relationFromExprToRef(expr, ref, resultFrom) {
+    function getAllRefs(expr, ref) {
+        var subData = {};
+        Util.each(parseRefsInExpr(expr), function (r) {
+            subData[r] = Util.refData(ref, r);
+        });
+        return Util.allRefs(subData);
+    }
     return {
-        upstream: deps,
+        upstream: getAllRefs(expr, ref).map(function (alias) {
+            return {
+                root: ref,
+                alias: alias
+            };
+        }),
         resultFrom: resultFrom || function () {
-            return DefaultConf.tmplEngine.evaluate(tmpl, ref);
+            return evaluateExpression(expr, ref);
         }
     };
 }
 
 /**
  * Unbind data from DOM.
- * @param       {[type]} ref      [description]
  * @param       {[type]} $el      [description]
+ * @param       {[type]} ref      [description]
  * @param       {[type]} relation [description]
  * @constructor
  */
@@ -145,32 +220,7 @@ function Unbind($el, ref, relation) {
  * @type {Object}
  */
 var DefaultConf = {
-    attrPrefix: 'm-',
-    tmplEngine: {
-        parseDeps: function (str, ref) {
-            var props = Object.keys(ref);
-            var deps = [];
-            props.forEach(function (p) {
-                var ii = Util.eachIndexOf(str, p);
-                Util.each(ii, function (i) {
-                    if ((str[i - 1] === undefined || /[^0-9a-zA-Z$_.]/.test(str[i - 1]))
-                        && (str[i + p.length] === undefined || /[^0-9a-zA-Z$_]/.test(str[i + p.length]))) {
-                        deps.push(p);
-                        return false;
-                    }
-                });
-            });
-            return deps;
-        },
-        evaluate: function (str, ref) {
-            return (new Function(Object.keys(ref).join(','), 'return ' + str)).apply(ref, Object.values(ref));
-        },
-        parseNodeValue: function (text, ref) {
-            return text.replace(/{{([^{}]*)}}/ig, function (match, p1, offset, string) {
-                return DefaultConf.tmplEngine.evaluate(p1, ref);
-            });
-        }
-    }
+    attrPrefix: 'm-'
 };
 
 DMD_Constructor: {
@@ -182,7 +232,7 @@ DMD_Constructor: {
     };
 
     DMD.prototype.bind = function (ref, relation) {
-        return Bind(this.$el, ref, relation);
+        return Bind.call(this, this.$el, ref, relation);
     };
 }
 

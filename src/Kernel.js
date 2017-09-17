@@ -179,6 +179,11 @@ Kernel.prototype.destroy = function () {
     // TODO
 };
 
+/**
+ * Whether an object is a relation definition.
+ * @param {Object} obj 
+ * @return {Boolean}
+ */
 function isRelationDefinition(obj) {
     if (!Util.isObject(obj)) return false;
     var r = true;
@@ -209,29 +214,18 @@ function isRelationDefinition(obj) {
     return r && (count > 0);
 }
 
-function flatten(root, onlyWantRelation) {
-    var ext = {};
-    Util.each(root, function (v, p) {
-        if (Util.isObject(v) && !isRelationDefinition(v)) {
-            var f = flatten(v, onlyWantRelation);
-            Util.each(f, function (vv, pp) {
-                ext[p + '.' + pp] = vv;
-            });
-        } else {
-            if (!onlyWantRelation || isRelationDefinition(v))
-                ext[p] = v;
-        }
-    })
-    return ext;
-}
-
+/**
+ * Define and bind data with relations in a whole (PropertyPath => Relation) map.
+ * @param {Object} obj                  The data object. If `relations` is undefined, it contains relations.
+ * @param {Object|Undefined} relations  A map from propertyPath to relation.
+ */
 function Relate(obj, relations) {
     var fr;
     if (arguments.length === 1) {
         if (!Util.isObject(obj)) return null;
-        fr = flatten(obj, true);
+        fr = Util.flatten(obj, isRelationDefinition, true);
     } else if (Util.isObject(relations)) {
-        fr = flatten(relations, true);
+        fr = Util.flatten(relations, isRelationDefinition, true);
     } else {
         return null;
     }
