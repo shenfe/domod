@@ -1,6 +1,6 @@
 import './Polyfill'
 import * as Util from './Util'
-import Kernel from './Kernel'
+import { Kernel, Relate } from './Kernel'
 
 /**
  * Bind data to DOM.
@@ -63,7 +63,8 @@ function Bind($el, ref, relation) {
             }
         });
     } else {
-        if ($el.nodeType === Node.ELEMENT_NODE) {
+        if ($el.nodeType === Node.ELEMENT_NODE && !$el[_this.defaults.domBoundFlag]) {
+            $el[_this.defaults.domBoundFlag] = true; /* Set a binding flag. */
             Util.each($el.attributes, function (value, name) {
                 if (!name.startsWith(_this.defaults.attrPrefix)) return;
                 name = name.substr(_this.defaults.attrPrefix.length);
@@ -79,13 +80,34 @@ function Bind($el, ref, relation) {
                         new Kernel($el, name, relationFromExprToRef(value, ref));
                         break;
                     case 'class':
+                        new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
+                            var re = evaluateRawTextWithTmpl(value, ref);
+                            // TODO
+                        }));
                         break;
                     case 'style':
+                        new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
+                            var re = evaluateRawTextWithTmpl(value, ref);
+                            // TODO
+                        }));
                         break;
                     default:
-                        var eventName
-                        if (Util.isEventName(name)) { /* Event */
+                        var eventName = Util.isEventName(name);
+                        if (eventName) { /* Event */
+                            Util.addEvent($el, eventName, function (e) {
+                                new Function(['e'].concat(Object.keys(ref)).join(','), value).apply($el, Object.values(ref));
+                            }, false);
                         } else { /* Attribute */
+                            var resultIn = function (v) {
+                                $el.setAttribute(name, new Function(Object.keys(ref).join(','), 'return ' + value).apply($el, Object.values(ref)));
+                            };
+                            var rels = {};
+                            Util.each(parseRefsInExpr(value), function (r) {
+                                rels[r] = {
+                                    resultIn: resultIn
+                                };
+                            });
+                            Relate(ref, rels);
                         }
                 }
             });
@@ -221,7 +243,8 @@ function Unbind($el, ref, relation) {
  * @type {Object}
  */
 var DefaultConf = {
-    attrPrefix: 'm-'
+    attrPrefix: 'm-',
+    domBoundFlag: '__dmd_bound'
 };
 
 DMD_Constructor: {
