@@ -165,6 +165,7 @@ function parseRefsInExpr(expr) {
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
  * @return {String}         [description]
+ * @example 'My name is {{name}}. I\'m {{age}} years old.' => ['name', 'age']
  */
 function parseExprsInRawText(text) {
     var reg = /{{([^{}]*)}}/g;
