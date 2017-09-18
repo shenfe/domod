@@ -7,6 +7,8 @@ module.exports = {
     sourceMap: true,
     dest: 'dist/domod.js',
     plugins: [
-        uglify()
+        uglify({
+            ie8: true
+        })
     ]
 };

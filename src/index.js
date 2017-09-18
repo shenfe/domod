@@ -1,4 +1,4 @@
-import './Polyfill'
+// import './Polyfill'
 import * as Util from './Util'
 import { Kernel, Relate } from './Kernel'
 
@@ -7,21 +7,15 @@ import { Kernel, Relate } from './Kernel'
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} ref                 [description]
  * @return {[type]}                     [description]
- * @note   如果有relation，则认为是active模式，否则是passive模式.
  */
 function Bind($el, ref) {
     if (!Util.isNode($el) || !Util.isObject(ref)) return;
 
-    var _this = this;
-    if (!_this.defaults) {
-        _this.defaults = DefaultConf;
-    }
-    
-    if ($el.nodeType === Node.ELEMENT_NODE && !$el[_this.defaults.domBoundFlag]) {
-        $el[_this.defaults.domBoundFlag] = true; /* Set a binding flag. */
+    if ($el.nodeType === Node.ELEMENT_NODE && !$el[DefaultConf.domBoundFlag]) {
+        $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
         Util.each($el.attributes, function (value, name) {
-            if (!name.startsWith(_this.defaults.attrPrefix)) return;
-            name = name.substr(_this.defaults.attrPrefix.length);
+            if (!name.startsWith(DefaultConf.attrPrefix)) return;
+            name = name.substr(DefaultConf.attrPrefix.length);
             switch (name) {
                 case 'value':
                     Util.addEvent($el, 'input', function (e) {
@@ -200,25 +194,17 @@ var DefaultConf = {
     domBoundFlag: '__dmd_bound'
 };
 
-DMD_Constructor: {
-    var DMD = function ($el, option) {
-        this.$el = $el || window.document.body;
+/**
+ * Constructor.
+ * @param {*}  
+ * @param {*} ref 
+ */
+var DMD = function ($el, ref) {
+    Bind.call(this, $el, ref);
+};
 
-        this.defaults = {};
-        Util.extend(this.defaults, DefaultConf, option);
-    };
-
-    DMD.prototype.bind = function (ref, relation) {
-        return Bind.call(this, this.$el, ref, relation);
-    };
+export {
+    Kernel,
+    Relate,
+    DMD
 }
-
-DMD_Factory: {
-    var factory = function ($el, option) {
-        return new DMD($el, option);
-    };
-    factory.defaults = Util.clone(DefaultConf);
-    factory.bind = Bind;
-}
-
-export default factory
