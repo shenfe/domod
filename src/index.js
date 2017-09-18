@@ -6,120 +6,73 @@ import { Kernel, Relate } from './Kernel'
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} ref                 [description]
- * @param  {Object} relation            [description]
  * @return {[type]}                     [description]
  * @note   如果有relation，则认为是active模式，否则是passive模式.
  */
-function Bind($el, ref, relation) {
-    if (!Util.isObject(ref) || !Util.isNode($el)) return;
+function Bind($el, ref) {
+    if (!Util.isNode($el) || !Util.isObject(ref)) return;
 
     var _this = this;
     if (!_this.defaults) {
         _this.defaults = DefaultConf;
     }
-
-    /**
-     * 绑定/渲染模式
-     * @type {String}
-     * @note "active"模式: 指定ref和$el之间的relation，主动进行双向绑定，不依赖于dom标签中的属性和模板；
-     *           绑定逻辑可分离为配置对象；可以达到渲染和绑定分离的目的，所以如果是SSR或第三方UI组件则
-     *           更推荐这种模式.
-     *       "passive"模式: 依赖于dom标签内定义的属性和模板，进行解析；渲染与绑定逻辑耦合，模板即组件.
-     */
-    var mode = Util.isObject(relation) ? 'active' : 'passive';
-
-    var dnstream = [];
-    var upstream = [];
-    var relations = {};
-    if (mode === 'active') {
-        Util.each(relation, function (v, p) {
-            switch (p) {
+    
+    if ($el.nodeType === Node.ELEMENT_NODE && !$el[_this.defaults.domBoundFlag]) {
+        $el[_this.defaults.domBoundFlag] = true; /* Set a binding flag. */
+        Util.each($el.attributes, function (value, name) {
+            if (!name.startsWith(_this.defaults.attrPrefix)) return;
+            name = name.substr(_this.defaults.attrPrefix.length);
+            switch (name) {
                 case 'value':
-                    
+                    Util.addEvent($el, 'input', function (e) {
+                        Util.refData(ref, value, this.value);
+                    }, false);
+                    new Kernel($el, name, relationFromExprToRef(value, ref));
                     break;
-                case 'style':
                 case 'innerText':
                 case 'innerHTML':
-                case 'className':
-                    applyRelation(ref, v)(function (v) {
-                        $el[p] = v;
-                    });
+                    new Kernel($el, name, relationFromExprToRef(value, ref));
+                    break;
+                case 'class':
+                    new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
+                        var re = evaluateRawTextWithTmpl(value, ref);
+                        // TODO
+                    }));
+                    break;
+                case 'style':
+                    new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
+                        var re = evaluateRawTextWithTmpl(value, ref);
+                        // TODO
+                    }));
                     break;
                 default:
-                    var pNum = parseInt(p);
-                    if (!isNaN(pNum)) { /* Node Index */
-                    } else if (Util.isEventName(p)) { /* Event */
-                        Util.addEvent($el, p.substr(2), v, false);
-                    } else if (Util.isCSSSelector(p)) { /* CSS Selector */
-                        var children = Array.prototype.slice.call($el.querySelectorAll(p), 0);
-                        Util.each(children, function (dom) {
-                            Bind(dom, ref, v);
-                        });
+                    var eventName = Util.isEventName(name);
+                    if (eventName) { /* Event */
+                        Util.addEvent($el, eventName, function (e) {
+                            new Function(['e'].concat(Object.keys(ref)).join(','), value).apply($el, Object.values(ref));
+                        }, false);
                     } else { /* Attribute */
-                        applyRelation(ref, v)(function (v) {
-                            $el.setAttribute(p, v);
+                        var resultIn = function (v) {
+                            $el.setAttribute(name, new Function(Object.keys(ref).join(','), 'return ' + value).apply($el, Object.values(ref)));
+                        };
+                        var rels = {};
+                        Util.each(parseRefsInExpr(value), function (r) {
+                            rels[r] = {
+                                resultIn: resultIn
+                            };
                         });
+                        Relate(ref, rels);
                     }
             }
         });
-    } else {
-        if ($el.nodeType === Node.ELEMENT_NODE && !$el[_this.defaults.domBoundFlag]) {
-            $el[_this.defaults.domBoundFlag] = true; /* Set a binding flag. */
-            Util.each($el.attributes, function (value, name) {
-                if (!name.startsWith(_this.defaults.attrPrefix)) return;
-                name = name.substr(_this.defaults.attrPrefix.length);
-                switch (name) {
-                    case 'value':
-                        Util.addEvent($el, 'input', function (e) {
-                            Util.refData(ref, value, this.value);
-                        }, false);
-                        new Kernel($el, name, relationFromExprToRef(value, ref));
-                        break;
-                    case 'innerText':
-                    case 'innerHTML':
-                        new Kernel($el, name, relationFromExprToRef(value, ref));
-                        break;
-                    case 'class':
-                        new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
-                            var re = evaluateRawTextWithTmpl(value, ref);
-                            // TODO
-                        }));
-                        break;
-                    case 'style':
-                        new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
-                            var re = evaluateRawTextWithTmpl(value, ref);
-                            // TODO
-                        }));
-                        break;
-                    default:
-                        var eventName = Util.isEventName(name);
-                        if (eventName) { /* Event */
-                            Util.addEvent($el, eventName, function (e) {
-                                new Function(['e'].concat(Object.keys(ref)).join(','), value).apply($el, Object.values(ref));
-                            }, false);
-                        } else { /* Attribute */
-                            var resultIn = function (v) {
-                                $el.setAttribute(name, new Function(Object.keys(ref).join(','), 'return ' + value).apply($el, Object.values(ref)));
-                            };
-                            var rels = {};
-                            Util.each(parseRefsInExpr(value), function (r) {
-                                rels[r] = {
-                                    resultIn: resultIn
-                                };
-                            });
-                            Relate(ref, rels);
-                        }
-                }
-            });
-            Util.each($el, function (node) {
-                Bind(node, ref);
-            });
-        } else if ($el.nodeType === Node.TEXT_NODE) {
-            var expr = parseExprsInRawText($el.nodeValue).join(';');
-            new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
-                return evaluateRawTextWithTmpl($el.nodeValue, ref);
-            }));
-        }
+        Util.each($el, function (node) {
+            Bind(node, ref);
+        });
+    } else if ($el.nodeType === Node.TEXT_NODE) {
+        var expr = parseExprsInRawText($el.nodeValue).join(';');
+        new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
+            return evaluateRawTextWithTmpl($el.nodeValue, ref);
+        }));
     }
 }
 
