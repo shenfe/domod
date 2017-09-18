@@ -30,13 +30,34 @@ function Bind($el, ref) {
                 case 'class':
                     new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
                         var re = evaluateRawTextWithTmpl(value, ref);
-                        // TODO
+                        var classList = [];
+                        if (Util.isObject(re)) {
+                            Util.each(re, function (v, p) {
+                                v && classList.push(p);
+                            });
+                        } else if (Util.isArray(re)) {
+                            Util.each(re, function (v) {
+                                if (Util.isString(v)) classList.push(v);
+                                else if (Util.isObject(v)) {
+                                    Util.each(v, function (vv, pp) {
+                                        vv && classList.push(pp);
+                                    });
+                                }
+                            });
+                        }
+                        return classList.join(' ');
                     }));
                     break;
                 case 'style':
                     new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
                         var re = evaluateRawTextWithTmpl(value, ref);
-                        // TODO
+                        var stylePairs = [];
+                        if (Util.isObject(re)) {
+                            Util.each(re, function (v, p) {
+                                stylePairs.push(p + ':' + v);
+                            });
+                        }
+                        return stylePairs.join(';');
                     }));
                     break;
                 default:

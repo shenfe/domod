@@ -23,7 +23,7 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
@@ -39,6 +39,7 @@ var isBasic = function (v) {
 };
 
 var isNode = function (v) {
+    if (typeof Node !== 'function') return false;
     return v instanceof Node;
 };
 
@@ -89,7 +90,7 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
-    } else if (Util.isFunction(v.forEach)) {
+    } else if (isFunction(v.forEach)) {
         v.forEach(func);
     }
 };
@@ -160,6 +161,7 @@ var extend = function (dest, srcs, clean) {
     if (!isObject(dest)) return null;
     var args = Array.prototype.slice.call(arguments, 1,
         arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
+    clean = arguments[arguments.length - 1] === true ? true : false;
 
     function extendObj(obj, src, clean) {
         if (!isObject(src)) return;

@@ -26,7 +26,7 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
@@ -85,7 +85,7 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
-    } else if (Util.isFunction(v.forEach)) {
+    } else if (isFunction(v.forEach)) {
         v.forEach(func);
     }
 };
@@ -99,6 +99,23 @@ var hasProperty = function (val, p) {
     }
     return false;
 };
+
+function flatten(root, objectFilter, clean) {
+    objectFilter = objectFilter || function () { return true; };
+    var ext = {};
+    each(root, function (v, p) {
+        if (isObject(v) && !objectFilter(v)) {
+            var f = flatten(v, objectFilter, clean);
+            each(f, function (vv, pp) {
+                ext[p + '.' + pp] = vv;
+            });
+        } else {
+            if (objectFilter(v) || !clean)
+                ext[p] = v;
+        }
+    });
+    return ext;
+}
 
 var Store = {};
 var Dnstreams = {};
@@ -274,6 +291,11 @@ Kernel.prototype.destroy = function () {
     // TODO
 };
 
+/**
+ * Whether an object is a relation definition.
+ * @param {Object} obj 
+ * @return {Boolean}
+ */
 function isRelationDefinition(obj) {
     if (!isObject(obj)) return false;
     var r = true;
@@ -304,29 +326,18 @@ function isRelationDefinition(obj) {
     return r && (count > 0);
 }
 
-function flatten(root, onlyWantRelation) {
-    var ext = {};
-    each(root, function (v, p) {
-        if (isObject(v) && !isRelationDefinition(v)) {
-            var f = flatten(v, onlyWantRelation);
-            each(f, function (vv, pp) {
-                ext[p + '.' + pp] = vv;
-            });
-        } else {
-            if (!onlyWantRelation || isRelationDefinition(v))
-                ext[p] = v;
-        }
-    });
-    return ext;
-}
-
+/**
+ * Define and bind data with relations in a whole (PropertyPath => Relation) map.
+ * @param {Object} obj                  The data object. If `relations` is undefined, it contains relations.
+ * @param {Object|Undefined} relations  A map from propertyPath to relation.
+ */
 function Relate(obj, relations) {
     var fr;
     if (arguments.length === 1) {
         if (!isObject(obj)) return null;
-        fr = flatten(obj, true);
+        fr = flatten(obj, isRelationDefinition, true);
     } else if (isObject(relations)) {
-        fr = flatten(relations, true);
+        fr = flatten(relations, isRelationDefinition, true);
     } else {
         return null;
     }
