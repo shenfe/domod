@@ -311,37 +311,43 @@ function Kernel(root, path, relations) {
     };
     if (lazy) Laziness[proppath] = true;
 
-    if (PropKernelTable[proppath].length === 1 && !isNode(obj.target)) {
-        Object.defineProperty(obj.target, obj.property, {
-            get: function () {
-                if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
-                    return update(proppath);
-                }
-                return value;
-            },
-            set: function (val) {
-                if (val === value) return;
-                value = val;
-                ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
-                });
-                if (Dnstreams[proppath]) {
-                    each(Dnstreams[proppath], function (kmap, ds) {
-                        var toUpdateDnstream = false;
-                        each(kmap, function (v, k) {
-                            if (KernelStatus[k] !== 0) {
-                                toUpdateDnstream = true;
-                                return false;
-                            }
-                        });
-                        if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
-                            update(ds);
+    if (PropKernelTable[proppath].length === 1) {
+        if (!isNode(obj.target)) {
+            Object.defineProperty(obj.target, obj.property, {
+                get: function () {
+                    if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
+                        return update(proppath);
+                    }
+                    return value;
+                },
+                set: function (val) {
+                    if (val === value) return;
+                    value = val;
+                    ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
+                        f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
                     });
-                }
-            },
-            // configurable: true,
-            enumerable: true
-        });
+                    if (Dnstreams[proppath]) {
+                        each(Dnstreams[proppath], function (kmap, ds) {
+                            var toUpdateDnstream = false;
+                            each(kmap, function (v, k) {
+                                if (KernelStatus[k] !== 0) {
+                                    toUpdateDnstream = true;
+                                    return false;
+                                }
+                            });
+                            if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
+                                update(ds);
+                        });
+                    }
+                },
+                // configurable: true,
+                enumerable: true
+            });
+            obj.target[obj.property];
+        } else {
+            if (isFunction(resultFrom))
+                obj.target[obj.property] = resultFrom();
+        }
     }
 }
 
