@@ -85,7 +85,7 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
-    } else if (isFunction(v.forEach)) {
+    } else if (v && isFunction(v.forEach)) {
         v.forEach(func);
     }
 };
@@ -280,6 +280,7 @@ function Kernel(root, path, relations) {
                 enumerable: true
             });
             obj.target[obj.property];
+            // obj.target[obj.property] = obj.target[obj.property];
         } else {
             if (isFunction(resultFrom))
                 obj.target[obj.property] = resultFrom();
