@@ -1,8 +1,8 @@
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.domod = {})));
-}(this, (function (exports) { 'use strict';
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.domod = factory());
+}(this, (function () { 'use strict';
 
 var gid = (function () {
     var n = 0;
@@ -634,11 +634,10 @@ var DMD = function ($el, ref) {
     Bind.call(this, $el, ref);
 };
 
-exports.Kernel = Kernel;
-exports.Relate = Relate;
-exports.DMD = DMD;
+DMD.kernel = Kernel;
+DMD.relate = Relate;
 
-Object.defineProperty(exports, '__esModule', { value: true });
+return DMD;
 
 })));
 //# sourceMappingURL=domod.js.map

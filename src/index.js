@@ -227,8 +227,7 @@ var DMD = function ($el, ref) {
     Bind.call(this, $el, ref);
 };
 
-export {
-    Kernel,
-    Relate,
-    DMD
-}
+DMD.kernel = Kernel;
+DMD.relate = Relate;
+
+export default DMD
