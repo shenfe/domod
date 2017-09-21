@@ -98,7 +98,7 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
-    } else if (isFunction(v.forEach)) {
+    } else if (v && isFunction(v.forEach)) {
         v.forEach(func);
     }
 };
@@ -137,16 +137,16 @@ var refData = function (root, refPath, value) {
     if (!toSet) {
         while (paths.length) {
             if (isBasic(v)) return undefined;
-            v = v[path.shift()];
+            v = v[paths.shift()];
         }
         return v;
     } else {
         while (paths.length) {
             if (isBasic(v)) return undefined;
             if (paths.length === 1) {
-                v[path.shift()] = value;
+                v[paths.shift()] = value;
             } else {
-                v = v[path.shift()];
+                v = v[paths.shift()];
             }
         }
         return value;
@@ -344,6 +344,7 @@ function Kernel(root, path, relations) {
                 enumerable: true
             });
             obj.target[obj.property];
+            // obj.target[obj.property] = obj.target[obj.property];
         } else {
             if (isFunction(resultFrom))
                 obj.target[obj.property] = resultFrom();
@@ -432,21 +433,21 @@ function Bind($el, ref) {
         $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
         each($el.attributes, function (value, name) {
             if (!name.startsWith(DefaultConf.attrPrefix)) return;
-            name = name.substr(DefaultConf.attrPrefix.length);
+            name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
             switch (name) {
                 case 'value':
                     addEvent($el, 'input', function (e) {
                         refData(ref, value, this.value);
                     }, false);
-                    new Kernel($el, name, relationFromExprToRef(value, ref));
+                    Relate(ref, relationFromExprToRef(value, ref, $el, name));
                     break;
-                case 'innerText':
-                case 'innerHTML':
-                    new Kernel($el, name, relationFromExprToRef(value, ref));
+                case 'innertext':
+                case 'innerhtml':
+                    Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
                     break;
                 case 'class':
-                    new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
-                        var re = evaluateRawTextWithTmpl(value, ref);
+                    Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
+                        var re = evaluateExpression(value, ref);
                         var classList = [];
                         if (isObject(re)) {
                             each(re, function (v, p) {
@@ -466,8 +467,8 @@ function Bind($el, ref) {
                     }));
                     break;
                 case 'style':
-                    new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
-                        var re = evaluateRawTextWithTmpl(value, ref);
+                    Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
+                        var re = evaluateExpression(value, ref);
                         var stylePairs = [];
                         if (isObject(re)) {
                             each(re, function (v, p) {
@@ -502,7 +503,8 @@ function Bind($el, ref) {
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var expr = parseExprsInRawText($el.nodeValue).join(';');
-        new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
+        if (expr === '') return;
+        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
             return evaluateRawTextWithTmpl($el.nodeValue, ref);
         }));
     }
@@ -591,7 +593,7 @@ function parseExprsInRawText(text) {
  * @param {Function}    resultFrom 
  * @return {Object}
  */
-function relationFromExprToRef(expr, ref, resultFrom) {
+function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
     function getAllRefs(expr, ref) {
         var subData = {};
         each(parseRefsInExpr(expr), function (r) {
@@ -599,17 +601,19 @@ function relationFromExprToRef(expr, ref, resultFrom) {
         });
         return allRefs(subData);
     }
-    return {
-        upstream: getAllRefs(expr, ref).map(function (alias) {
-            return {
-                root: ref,
-                alias: alias
-            };
-        }),
-        resultFrom: resultFrom || function () {
+    var resultIn = function () {
+        refData(target, proppath, (resultFrom || function () {
             return evaluateExpression(expr, ref);
-        }
+        })());
     };
+    var r = {};
+    getAllRefs(expr, ref).forEach(function (ref) {
+        r[ref] = {
+            resultIn: resultIn
+        };
+    });
+    resultIn();
+    return r;
 }
 
 /**

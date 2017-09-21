@@ -113,7 +113,7 @@ var each = function (v, func, arrayReverse) {
             var r = func(v[i]['nodeValue'], v[i]['nodeName']);
             if (r === false) break;
         }
-    } else if (isFunction(v.forEach)) {
+    } else if (v && isFunction(v.forEach)) {
         v.forEach(func);
     }
 };
@@ -282,16 +282,16 @@ var refData = function (root, refPath, value) {
     if (!toSet) {
         while (paths.length) {
             if (isBasic(v)) return undefined;
-            v = v[path.shift()];
+            v = v[paths.shift()];
         }
         return v;
     } else {
         while (paths.length) {
             if (isBasic(v)) return undefined;
             if (paths.length === 1) {
-                v[path.shift()] = value;
+                v[paths.shift()] = value;
             } else {
-                v = v[path.shift()];
+                v = v[paths.shift()];
             }
         }
         return value;

@@ -3,14 +3,32 @@
     <head>
         <meta charset="utf-8">
         <title>test1</title>
+        <style>
+            .class1 {
+                font-size: 24px;
+            }
+            .class2 {
+                letter-spacing: 1em;
+            }
+        </style>
         <script src="../dist/domod.js" charset="utf-8"></script>
     </head>
     <body>
-        <div id="div1" class="">
-        </div>
+        <input id="input1" type="text" m-value="value">
+        <input id="input2" type="text" m-value="value">
+        <div id="div1" m-class="['class1', { 'class2': !!value }]" m-style="{color: color}">{{html}}</div>
         <script type="text/javascript">
+            var store = {
+                value: '',
+                color: 'red',
+                html: 'hello world'
+            };
             window.onload = function () {
-
+                var $input1 = document.getElementById('input1');
+                var $input2 = document.getElementById('input2');
+                domod.DMD($input1, store);
+                domod.DMD($input2, store);
+                domod.DMD(document.body, store);
             };
         </script>
     </body>

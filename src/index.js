@@ -15,21 +15,21 @@ function Bind($el, ref) {
         $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
         Util.each($el.attributes, function (value, name) {
             if (!name.startsWith(DefaultConf.attrPrefix)) return;
-            name = name.substr(DefaultConf.attrPrefix.length);
+            name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
             switch (name) {
                 case 'value':
                     Util.addEvent($el, 'input', function (e) {
                         Util.refData(ref, value, this.value);
                     }, false);
-                    new Kernel($el, name, relationFromExprToRef(value, ref));
+                    Relate(ref, relationFromExprToRef(value, ref, $el, name));
                     break;
-                case 'innerText':
-                case 'innerHTML':
-                    new Kernel($el, name, relationFromExprToRef(value, ref));
+                case 'innertext':
+                case 'innerhtml':
+                    Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
                     break;
                 case 'class':
-                    new Kernel($el, 'className', relationFromExprToRef(value, ref, function () {
-                        var re = evaluateRawTextWithTmpl(value, ref);
+                    Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
+                        var re = evaluateExpression(value, ref);
                         var classList = [];
                         if (Util.isObject(re)) {
                             Util.each(re, function (v, p) {
@@ -49,8 +49,8 @@ function Bind($el, ref) {
                     }));
                     break;
                 case 'style':
-                    new Kernel($el, 'style.cssText', relationFromExprToRef(value, ref, function () {
-                        var re = evaluateRawTextWithTmpl(value, ref);
+                    Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
+                        var re = evaluateExpression(value, ref);
                         var stylePairs = [];
                         if (Util.isObject(re)) {
                             Util.each(re, function (v, p) {
@@ -85,7 +85,8 @@ function Bind($el, ref) {
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var expr = parseExprsInRawText($el.nodeValue).join(';');
-        new Kernel($el, 'nodeValue', relationFromExprToRef(expr, ref, function () {
+        if (expr === '') return;
+        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
             return evaluateRawTextWithTmpl($el.nodeValue, ref);
         }));
     }
@@ -174,7 +175,7 @@ function parseExprsInRawText(text) {
  * @param {Function}    resultFrom 
  * @return {Object}
  */
-function relationFromExprToRef(expr, ref, resultFrom) {
+function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
     function getAllRefs(expr, ref) {
         var subData = {};
         Util.each(parseRefsInExpr(expr), function (r) {
@@ -182,17 +183,19 @@ function relationFromExprToRef(expr, ref, resultFrom) {
         });
         return Util.allRefs(subData);
     }
-    return {
-        upstream: getAllRefs(expr, ref).map(function (alias) {
-            return {
-                root: ref,
-                alias: alias
-            };
-        }),
-        resultFrom: resultFrom || function () {
+    var resultIn = function () {
+        Util.refData(target, proppath, (resultFrom || function () {
             return evaluateExpression(expr, ref);
-        }
+        })());
     };
+    var r = {};
+    getAllRefs(expr, ref).forEach(function (ref) {
+        r[ref] = {
+            resultIn: resultIn
+        };
+    });
+    resultIn();
+    return r;
 }
 
 /**

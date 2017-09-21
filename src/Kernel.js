@@ -168,6 +168,7 @@ function Kernel(root, path, relations) {
                 enumerable: true
             });
             obj.target[obj.property];
+            // obj.target[obj.property] = obj.target[obj.property];
         } else {
             if (Util.isFunction(resultFrom))
                 obj.target[obj.property] = resultFrom();
