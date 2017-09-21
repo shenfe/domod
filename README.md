@@ -10,7 +10,11 @@
 <script src="path/to/domod.js" charset="utf-8"></script>
 
 <input id="input1" type="text" m-value="$value">
-<div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$value}}</div>
+<div id="div1"
+    m-class="['some-class', { red: $color === 'red' }]"
+    m-style="{ display: !!$value ? 'block' : 'none' }">
+    You input: {{$value}}
+</div>
 
 <script>
     var store = {
