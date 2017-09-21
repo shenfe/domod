@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
+    <style>
+        .red {
+            color: red;
+        }
+    </style>
 </head>
 <body>
     <script src="../dist/domod.js" charset="utf-8"></script>
@@ -12,9 +17,15 @@
     <div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$value}}</div>
     <script>
         var store = {
-            value: '1',
-            color: 'blue'
+            value: '1'
         };
+        domod.relate(store, {
+            color: {
+                resultFrom: function () {
+                    return isNaN(parseInt(store.value)) ? 'red' : 'green';
+                }
+            }
+        });
         domod(document.getElementById('input1'), store);
         domod(document.getElementById('div1'), store);
     </script>
