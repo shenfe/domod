@@ -2,6 +2,8 @@
 import * as Util from './Util'
 import { Kernel, Relate } from './Kernel'
 
+var refBeginsWithDollar = true;
+
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
@@ -19,7 +21,7 @@ function Bind($el, ref) {
             switch (name) {
                 case 'value':
                     Util.addEvent($el, 'input', function (e) {
-                        Util.refData(ref, value, this.value);
+                        Util.refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
                     }, false);
                     Relate(ref, relationFromExprToRef(value, ref, $el, name));
                     break;
@@ -62,13 +64,19 @@ function Bind($el, ref) {
                     break;
                 default:
                     var eventName = Util.isEventName(name);
+                    var params = Object.keys(ref);
+                    if (refBeginsWithDollar) {
+                        params = params.map(function (r) {
+                            return '$' + r;
+                        });
+                    }
                     if (eventName) { /* Event */
                         Util.addEvent($el, eventName, function (e) {
-                            new Function(['e'].concat(Object.keys(ref)).join(','), value).apply($el, Object.values(ref));
+                            new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
                         }, false);
                     } else { /* Attribute */
                         var resultIn = function (v) {
-                            $el.setAttribute(name, new Function(Object.keys(ref).join(','), 'return ' + value).apply($el, Object.values(ref)));
+                            $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
                         };
                         var rels = {};
                         Util.each(parseRefsInExpr(value), function (r) {
@@ -84,10 +92,11 @@ function Bind($el, ref) {
             Bind(node, ref);
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
-        var expr = parseExprsInRawText($el.nodeValue).join(';');
+        var tmpl = $el.nodeValue;
+        var expr = parseExprsInRawText(tmpl).join(';');
         if (expr === '') return;
         Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
-            return evaluateRawTextWithTmpl($el.nodeValue, ref);
+            return evaluateRawTextWithTmpl(tmpl, ref);
         }));
     }
 }
@@ -101,6 +110,11 @@ function Bind($el, ref) {
 function evaluateExpression(expr, ref) {
     expr = replaceTmplInStrLiteral(expr);
     var params = Object.keys(ref);
+    if (refBeginsWithDollar) {
+        params = params.map(function (r) {
+            return '$' + r;
+        });
+    }
     var args = Object.values(ref);
     Util.each(args, function (v, i) {
         if (Util.isFunction(v))
@@ -148,8 +162,16 @@ function evaluateRawTextWithTmpl(text, ref) {
  */
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
-    var reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-    return expr.match(reg);
+    var reg;
+    if (refBeginsWithDollar) {
+        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return expr.match(reg).map(function (r) {
+            return r.substr(1);
+        });
+    } else {
+        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return expr.match(reg);
+    }
 }
 
 /**

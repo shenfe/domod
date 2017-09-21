@@ -14,12 +14,12 @@
         <script src="../dist/domod.js" charset="utf-8"></script>
     </head>
     <body>
-        <input id="input1" type="text" m-value="value">
-        <input id="input2" type="text" m-value="value">
-        <div id="div1" m-class="['class1', { 'class2': !!value }]" m-style="{color: color}">{{html}}</div>
+        <input id="input1" type="text" m-value="$value">
+        <input id="input2" type="text" m-value="$value">
+        <div id="div1" m-class="['class1', { 'class2': !!$value }]" m-style="{color: $color}">{{$html}}</div>
         <script type="text/javascript">
             var store = {
-                value: '',
+                value: '1',
                 color: 'red',
                 html: 'hello world'
             };

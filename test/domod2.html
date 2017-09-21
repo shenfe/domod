@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <script src="../dist/domod.js" charset="utf-8"></script>
+    <input id="input1" type="text" m-value="$value">
+    <div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$value}}</div>
+    <script>
+        var store = {
+            value: '1',
+            color: 'blue'
+        };
+        domod(document.getElementById('input1'), store);
+        domod(document.getElementById('div1'), store);
+    </script>
+</body>
+</html>
