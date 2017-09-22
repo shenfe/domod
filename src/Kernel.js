@@ -97,8 +97,9 @@ function Kernel(root, path, relations) {
     var value = obj.target[obj.property];
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (Util.hasProperty(obj.target, obj.property))
+        if (Util.hasProperty(obj.target, obj.property)) {
             delete obj.target[obj.property];
+        }
     }
     PropKernelTable[proppath].push(1);
 
@@ -128,11 +129,13 @@ function Kernel(root, path, relations) {
         if (!Dnstreams[p][proppath]) Dnstreams[p][proppath] = {};
         Dnstreams[p][proppath][__kid] = 1;
     });
-    if (Util.isFunction(resultFrom)) ResultsFrom[proppath] = {
-        f: resultFrom,
-        k: this.__kid,
-        deps: upstream
-    };
+    if (Util.isFunction(resultFrom)) {
+        ResultsFrom[proppath] = {
+            f: resultFrom,
+            k: this.__kid,
+            deps: upstream
+        };
+    }
     if (lazy) Laziness[proppath] = true;
 
     if (PropKernelTable[proppath].length === 1) {
@@ -159,8 +162,7 @@ function Kernel(root, path, relations) {
                                     return false;
                                 }
                             });
-                            if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
-                                update(ds);
+                            toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds] && update(ds);
                         });
                     }
                 },
@@ -170,8 +172,9 @@ function Kernel(root, path, relations) {
             obj.target[obj.property];
             // obj.target[obj.property] = obj.target[obj.property];
         } else {
-            if (Util.isFunction(resultFrom))
+            if (Util.isFunction(resultFrom)) {
                 obj.target[obj.property] = resultFrom();
+            }
         }
     }
 }

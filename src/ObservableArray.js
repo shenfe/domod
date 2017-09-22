@@ -122,8 +122,8 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
     var howManyToInsert = itemsToInsert.length;
 
     var howManyToSet = Math.min(howManyToDelete, howManyToInsert);
-    for (var i = startIndex; i < startIndex + howManyToSet; i++) {
-        this[i] = itemsToInsert[i - startIndex];
+    for (var j = startIndex; j < startIndex + howManyToSet; j++) {
+        this[j] = itemsToInsert[j - startIndex];
     }
 
     if (howManyToDelete === howManyToInsert) return;

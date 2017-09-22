@@ -19,73 +19,73 @@ function Bind($el, ref) {
             if (!name.startsWith(DefaultConf.attrPrefix)) return;
             name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
             switch (name) {
-                case 'value':
-                    Util.addEvent($el, 'input', function (e) {
-                        Util.refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+            case 'value':
+                Util.addEvent($el, 'input', function (e) {
+                    Util.refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+                }, false);
+                Relate(ref, relationFromExprToRef(value, ref, $el, name));
+                break;
+            case 'innertext':
+            case 'innerhtml':
+                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
+                break;
+            case 'class':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
+                    var re = evaluateExpression(value, ref);
+                    var classList = [];
+                    if (Util.isObject(re)) {
+                        Util.each(re, function (v, p) {
+                            v && classList.push(p);
+                        });
+                    } else if (Util.isArray(re)) {
+                        Util.each(re, function (v) {
+                            if (Util.isString(v)) classList.push(v);
+                            else if (Util.isObject(v)) {
+                                Util.each(v, function (vv, pp) {
+                                    vv && classList.push(pp);
+                                });
+                            }
+                        });
+                    }
+                    return classList.join(' ');
+                }));
+                break;
+            case 'style':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
+                    var re = evaluateExpression(value, ref);
+                    var stylePairs = [];
+                    if (Util.isObject(re)) {
+                        Util.each(re, function (v, p) {
+                            stylePairs.push(p + ':' + v);
+                        });
+                    }
+                    return stylePairs.join(';');
+                }));
+                break;
+            default:
+                var eventName = Util.isEventName(name);
+                var params = Object.keys(ref);
+                if (refBeginsWithDollar) {
+                    params = params.map(function (r) {
+                        return '$' + r;
+                    });
+                }
+                if (eventName) { /* Event */
+                    Util.addEvent($el, eventName, function (e) {
+                        new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
                     }, false);
-                    Relate(ref, relationFromExprToRef(value, ref, $el, name));
-                    break;
-                case 'innertext':
-                case 'innerhtml':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
-                    break;
-                case 'class':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
-                        var re = evaluateExpression(value, ref);
-                        var classList = [];
-                        if (Util.isObject(re)) {
-                            Util.each(re, function (v, p) {
-                                v && classList.push(p);
-                            });
-                        } else if (Util.isArray(re)) {
-                            Util.each(re, function (v) {
-                                if (Util.isString(v)) classList.push(v);
-                                else if (Util.isObject(v)) {
-                                    Util.each(v, function (vv, pp) {
-                                        vv && classList.push(pp);
-                                    });
-                                }
-                            });
-                        }
-                        return classList.join(' ');
-                    }));
-                    break;
-                case 'style':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
-                        var re = evaluateExpression(value, ref);
-                        var stylePairs = [];
-                        if (Util.isObject(re)) {
-                            Util.each(re, function (v, p) {
-                                stylePairs.push(p + ':' + v);
-                            });
-                        }
-                        return stylePairs.join(';');
-                    }));
-                    break;
-                default:
-                    var eventName = Util.isEventName(name);
-                    var params = Object.keys(ref);
-                    if (refBeginsWithDollar) {
-                        params = params.map(function (r) {
-                            return '$' + r;
-                        });
-                    }
-                    if (eventName) { /* Event */
-                        Util.addEvent($el, eventName, function (e) {
-                            new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
-                        }, false);
-                    } else { /* Attribute */
-                        var resultIn = function (v) {
-                            $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
+                } else { /* Attribute */
+                    var resultIn = function (v) {
+                        $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
+                    };
+                    var rels = {};
+                    Util.each(parseRefsInExpr(value), function (r) {
+                        rels[r] = {
+                            resultIn: resultIn
                         };
-                        var rels = {};
-                        Util.each(parseRefsInExpr(value), function (r) {
-                            rels[r] = {
-                                resultIn: resultIn
-                            };
-                        });
-                        Relate(ref, rels);
-                    }
+                    });
+                    Relate(ref, rels);
+                }
             }
         });
         Util.each($el, function (node) {
@@ -117,8 +117,9 @@ function evaluateExpression(expr, ref) {
     }
     var args = Object.values(ref);
     Util.each(args, function (v, i) {
-        if (Util.isFunction(v))
+        if (Util.isFunction(v)) {
             args[i] = v.bind(ref);
+        }
     });
     var result = null;
     try {

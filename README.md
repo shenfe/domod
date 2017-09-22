@@ -42,7 +42,7 @@ Now assign a property `color` which would be computed from the property `value`.
 
 There are two methods available, `kernel` and `relate`.
 
-The `kernel` method, which is actually a constructor function, accepts two parameters, the property and its relation object.
+The `kernel` method, which is actually a constructor function, accepts two parameters besides the data object: the property and its relation object.
 
 ```js
 new domod.kernel(store, 'color', {
@@ -52,7 +52,7 @@ new domod.kernel(store, 'color', {
 });
 ```
 
-The `relate` method, which is somehow a composition of `kernel`, accepts one parameter, an object representing a map from property names to relation objects.
+The `relate` method, which is somehow a composition of `kernel`, accepts one parameter besides the data object: an object representing a map from property names to relation objects.
 
 ```js
 domod.relate(store, {
