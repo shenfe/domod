@@ -56,47 +56,46 @@ var isEventName = function (v) {
 };
 
 var each = function (v, func, arrayReverse) {
+    var i;
+    var len;
     if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
-            var r = func(v[p], p);
-            if (r === false) break;
+            if (func(v[p], p) === false) break;
         }
     } else if (isArray(v)) {
         if (!arrayReverse) {
-            for (var i = 0, len = v.length; i < len; i++) {
-                var r = func(v[i], i);
-                if (r === false) break;
+            for (i = 0, len = v.length; i < len; i++) {
+                if (func(v[i], i) === false) break;
             }
         } else {
-            for (var i = v.length - 1; i >= 0; i--) {
-                var r = func(v[i], i);
-                if (r === false) break;
+            for (i = v.length - 1; i >= 0; i--) {
+                if (func(v[i], i) === false) break;
             }
         }
     } else if (isNode(v)) {
         var ret = false;
         switch (v.nodeType) {
-            case Node.ELEMENT_NODE:
-                break;
-            case Node.TEXT_NODE:
-            case Node.COMMENT_NODE:
-            case Node.PROCESSING_INSTRUCTION_NODE:
-            case Node.DOCUMENT_NODE:
-            case Node.DOCUMENT_TYPE_NODE:
-            case Node.DOCUMENT_FRAGMENT_NODE:
-            default:
-                ret = true;
+        case Node.ELEMENT_NODE:
+            break;
+        case Node.TEXT_NODE:
+        case Node.COMMENT_NODE:
+        case Node.PROCESSING_INSTRUCTION_NODE:
+        case Node.DOCUMENT_NODE:
+        case Node.DOCUMENT_TYPE_NODE:
+        case Node.DOCUMENT_FRAGMENT_NODE:
+        default:
+            ret = true;
         }
         if (ret) return;
-        for (var i = 0, childNodes = v.childNodes, len = v.childNodes.length; i < len; i++) {
+        var childNodes = v.childNodes;
+        for (i = 0, len = childNodes.length; i < len; i++) {
             func(childNodes[i]);
             each(childNodes[i], func);
         }
     } else if (isNamedNodeMap(v)) {
-        for (var i = 0, len = v.length; i < len; i++) {
-            var r = func(v[i]['nodeValue'], v[i]['nodeName']);
-            if (r === false) break;
+        for (i = 0, len = v.length; i < len; i++) {
+            if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
     } else if (v && isFunction(v.forEach)) {
         v.forEach(func);
@@ -174,8 +173,9 @@ function flatten(root, objectFilter, clean) {
                 ext[p + '.' + pp] = vv;
             });
         } else {
-            if (objectFilter(v) || !clean)
+            if (objectFilter(v) || !clean) {
                 ext[p] = v;
+            }
         }
     });
     return ext;
@@ -273,8 +273,9 @@ function Kernel(root, path, relations) {
     var value = obj.target[obj.property];
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (hasProperty(obj.target, obj.property))
+        if (hasProperty(obj.target, obj.property)) {
             delete obj.target[obj.property];
+        }
     }
     PropKernelTable[proppath].push(1);
 
@@ -304,11 +305,13 @@ function Kernel(root, path, relations) {
         if (!Dnstreams[p][proppath]) Dnstreams[p][proppath] = {};
         Dnstreams[p][proppath][__kid] = 1;
     });
-    if (isFunction(resultFrom)) ResultsFrom[proppath] = {
-        f: resultFrom,
-        k: this.__kid,
-        deps: upstream
-    };
+    if (isFunction(resultFrom)) {
+        ResultsFrom[proppath] = {
+            f: resultFrom,
+            k: this.__kid,
+            deps: upstream
+        };
+    }
     if (lazy) Laziness[proppath] = true;
 
     if (PropKernelTable[proppath].length === 1) {
@@ -335,8 +338,7 @@ function Kernel(root, path, relations) {
                                     return false;
                                 }
                             });
-                            if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
-                                update(ds);
+                            toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds] && update(ds);
                         });
                     }
                 },
@@ -346,8 +348,9 @@ function Kernel(root, path, relations) {
             obj.target[obj.property];
             // obj.target[obj.property] = obj.target[obj.property];
         } else {
-            if (isFunction(resultFrom))
+            if (isFunction(resultFrom)) {
                 obj.target[obj.property] = resultFrom();
+            }
         }
     }
 }
@@ -433,78 +436,83 @@ function Bind($el, ref) {
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[DefaultConf.domBoundFlag]) {
         $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
+        var attrList = [];
         each($el.attributes, function (value, name) {
             if (!name.startsWith(DefaultConf.attrPrefix)) return;
+            attrList.push(name);
             name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
             switch (name) {
-                case 'value':
-                    addEvent($el, 'input', function (e) {
-                        refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+            case 'value':
+                addEvent($el, 'input', function (e) {
+                    refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+                }, false);
+                Relate(ref, relationFromExprToRef(value, ref, $el, name));
+                break;
+            case 'innertext':
+            case 'innerhtml':
+                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
+                break;
+            case 'class':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
+                    var re = evaluateExpression(value, ref);
+                    var classList = [];
+                    if (isObject(re)) {
+                        each(re, function (v, p) {
+                            v && classList.push(p);
+                        });
+                    } else if (isArray(re)) {
+                        each(re, function (v) {
+                            if (isString(v)) classList.push(v);
+                            else if (isObject(v)) {
+                                each(v, function (vv, pp) {
+                                    vv && classList.push(pp);
+                                });
+                            }
+                        });
+                    }
+                    return classList.join(' ');
+                }));
+                break;
+            case 'style':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
+                    var re = evaluateExpression(value, ref);
+                    var stylePairs = [];
+                    if (isObject(re)) {
+                        each(re, function (v, p) {
+                            stylePairs.push(p + ':' + v);
+                        });
+                    }
+                    return stylePairs.join(';');
+                }));
+                break;
+            default:
+                var eventName = isEventName(name);
+                var params = Object.keys(ref);
+                if (refBeginsWithDollar) {
+                    params = params.map(function (r) {
+                        return '$' + r;
+                    });
+                }
+                if (eventName) { /* Event */
+                    addEvent($el, eventName, function (e) {
+                        new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
                     }, false);
-                    Relate(ref, relationFromExprToRef(value, ref, $el, name));
-                    break;
-                case 'innertext':
-                case 'innerhtml':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
-                    break;
-                case 'class':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
-                        var re = evaluateExpression(value, ref);
-                        var classList = [];
-                        if (isObject(re)) {
-                            each(re, function (v, p) {
-                                v && classList.push(p);
-                            });
-                        } else if (isArray(re)) {
-                            each(re, function (v) {
-                                if (isString(v)) classList.push(v);
-                                else if (isObject(v)) {
-                                    each(v, function (vv, pp) {
-                                        vv && classList.push(pp);
-                                    });
-                                }
-                            });
-                        }
-                        return classList.join(' ');
-                    }));
-                    break;
-                case 'style':
-                    Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
-                        var re = evaluateExpression(value, ref);
-                        var stylePairs = [];
-                        if (isObject(re)) {
-                            each(re, function (v, p) {
-                                stylePairs.push(p + ':' + v);
-                            });
-                        }
-                        return stylePairs.join(';');
-                    }));
-                    break;
-                default:
-                    var eventName = isEventName(name);
-                    var params = Object.keys(ref);
-                    if (refBeginsWithDollar) {
-                        params = params.map(function (r) {
-                            return '$' + r;
-                        });
-                    }
-                    if (eventName) { /* Event */
-                        addEvent($el, eventName, function (e) {
-                            new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
-                        }, false);
-                    } else { /* Attribute */
-                        var resultIn = function (v) {
-                            $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
+                } else { /* Attribute */
+                    var resultIn = function (v) {
+                        $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
+                    };
+                    var rels = {};
+                    each(parseRefsInExpr(value), function (r) {
+                        rels[r] = {
+                            resultIn: resultIn
                         };
-                        var rels = {};
-                        each(parseRefsInExpr(value), function (r) {
-                            rels[r] = {
-                                resultIn: resultIn
-                            };
-                        });
-                        Relate(ref, rels);
-                    }
+                    });
+                    Relate(ref, rels);
+                }
             }
+        });
+        each(attrList, function (name) {
+            $el.removeAttribute(name);
         });
         each($el, function (node) {
             Bind(node, ref);
@@ -535,8 +543,9 @@ function evaluateExpression(expr, ref) {
     }
     var args = Object.values(ref);
     each(args, function (v, i) {
-        if (isFunction(v))
+        if (isFunction(v)) {
             args[i] = v.bind(ref);
+        }
     });
     var result = null;
     try {

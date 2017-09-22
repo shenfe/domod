@@ -15,8 +15,10 @@ function Bind($el, ref) {
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[DefaultConf.domBoundFlag]) {
         $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
+        var attrList = [];
         Util.each($el.attributes, function (value, name) {
             if (!name.startsWith(DefaultConf.attrPrefix)) return;
+            attrList.push(name);
             name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
             switch (name) {
             case 'value':
@@ -87,6 +89,9 @@ function Bind($el, ref) {
                     Relate(ref, rels);
                 }
             }
+        });
+        Util.each(attrList, function (name) {
+            $el.removeAttribute(name);
         });
         Util.each($el, function (node) {
             Bind(node, ref);
