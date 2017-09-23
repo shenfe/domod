@@ -11,7 +11,7 @@ A super lightweight data-binding (or so-called mvvm) library, providing both **d
 
 <input id="input1" type="text" m-value="$value">
 <div id="div1"
-    m-class="['some-class', { red: $color === 'red' }]"
+    m-class="['some-class', { 'red-color': $color === 'red' }]"
     m-style="{ display: !!$value ? 'block' : 'none' }">
     You input: {{$value}}
 </div>
@@ -19,7 +19,7 @@ A super lightweight data-binding (or so-called mvvm) library, providing both **d
 <script>
     var store = {
         value: '1',
-        color: 'blue'
+        color: 'green'
     };
     domod(document.getElementById('input1'), store);
     domod(document.getElementById('div1'), store);
