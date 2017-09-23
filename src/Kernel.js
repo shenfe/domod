@@ -8,6 +8,28 @@ var ResultsFrom = {};
 var Laziness = {};
 var PropKernelTable = {};
 var KernelStatus = {};
+var GetterSetter = {};
+
+var definePropertyFeature = !!Object.defineProperty;
+var useDefineProperty = true && definePropertyFeature;
+
+function defineProperty(target, prop, desc, proppath) {
+    if (useDefineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
+        }
+        proppath = proppath || fullpathOf(prop, target);
+        if (!GetterSetter[proppath]) GetterSetter[proppath] = {};
+        if ('get' in desc) {
+            GetterSetter[proppath].get = desc.get;
+        }
+        if ('set' in desc) {
+            GetterSetter[proppath].set = desc.set;
+        }
+    }
+}
 
 function get(ref, root) {
     if (root === undefined) root = Store;
@@ -27,24 +49,22 @@ function get(ref, root) {
     return null;
 }
 
-function set(ref, val, root) {
-    var obj = get(ref, root);
-    if (obj) obj.target[obj.property] = val;
-}
-
 function update(ref, root) {
     var obj = get(ref, root);
     if (!obj) return null;
     var proppath = fullpathOf(ref, root);
     if (!ResultsFrom[proppath]) return obj.target[obj.property];
-    var value = ResultsFrom[proppath].f.apply(Store, ResultsFrom[proppath].deps.map(function (p) { return update(p) }));
+    var value = ResultsFrom[proppath].f.apply(
+        Store,
+        ResultsFrom[proppath].deps.map(function (p) { return update(p) })
+    );
     obj.target[obj.property] = value;
     return value;
 }
 
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
-    return register(root) + '.' + ref;
+    return register(root) + (ref ? ('.' + ref) : '');
 }
 
 function register(root) {
@@ -52,7 +72,7 @@ function register(root) {
     if (!root.__kernel_root) {
         var id = 'kr_' + Util.gid();
         if (!Util.isNode(root)) {
-            Object.defineProperty(root, '__kernel_root', {
+            defineProperty(root, '__kernel_root', {
                 value: id
             });
         } else {
@@ -90,7 +110,7 @@ function Kernel(root, path, relations) {
     if (obj == null) return;
     var proppath = register(root) + '.' + path;
     var __kid = proppath + '#' + propKernelOrder(proppath);
-    Object.defineProperty(this, '__kid', {
+    defineProperty(this, '__kid', {
         value: __kid
     });
     KernelStatus[this.__kid] = 1;
@@ -140,7 +160,8 @@ function Kernel(root, path, relations) {
 
     if (PropKernelTable[proppath].length === 1) {
         if (!Util.isNode(obj.target)) {
-            Object.defineProperty(obj.target, obj.property, {
+            GetterSetter[proppath] = {
+                proppath: proppath,
                 get: function () {
                     if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
                         return update(proppath);
@@ -168,7 +189,8 @@ function Kernel(root, path, relations) {
                 },
                 // configurable: true,
                 enumerable: true
-            });
+            };
+            defineProperty(obj.target, obj.property, GetterSetter[proppath], proppath);
             obj.target[obj.property];
             // obj.target[obj.property] = obj.target[obj.property];
         } else {
@@ -246,4 +268,35 @@ function Relate(obj, relations) {
     return obj;
 }
 
-export { Kernel, Relate }
+/**
+ * Get or set data, and trigger getters or setters.
+ */
+function Data(root, refPath, value) {
+    var toSet = arguments.length >= 3;
+    var v = root;
+    var proppath = fullpathOf(null, root);
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+    var p;
+
+    while (paths.length) {
+        if (isBasic(v)) return undefined;
+        p = paths.shift();
+        proppath += '.' + p;
+        if (toSet && paths.length === 1) { /* set */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
+                GetterSetter[proppath].set(value);
+            }
+            v[p] = value;
+        } else { /* get */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
+                v = GetterSetter[proppath].get();
+            } else {
+                v = v[p];
+            }
+        }
+    }
+    return toSet ? value : v;
+}
+
+export { Kernel, Relate, Data }

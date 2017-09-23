@@ -1,8 +1,6 @@
 // import './Polyfill'
 import * as Util from './Util'
-import { Kernel, Relate } from './Kernel'
-
-var refBeginsWithDollar = true;
+import { Kernel, Relate, Data } from './Kernel'
 
 /**
  * Bind data to DOM.
@@ -23,7 +21,7 @@ function Bind($el, ref) {
             switch (name) {
             case 'value':
                 Util.addEvent($el, 'input', function (e) {
-                    Util.refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+                    Util.refData(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
                 }, false);
                 Relate(ref, relationFromExprToRef(value, ref, $el, name));
                 break;
@@ -67,7 +65,7 @@ function Bind($el, ref) {
             default:
                 var eventName = Util.isEventName(name);
                 var params = Object.keys(ref);
-                if (refBeginsWithDollar) {
+                if (DefaultConf.refBeginsWithDollar) {
                     params = params.map(function (r) {
                         return '$' + r;
                     });
@@ -115,7 +113,7 @@ function Bind($el, ref) {
 function evaluateExpression(expr, ref) {
     expr = replaceTmplInStrLiteral(expr);
     var params = Object.keys(ref);
-    if (refBeginsWithDollar) {
+    if (DefaultConf.refBeginsWithDollar) {
         params = params.map(function (r) {
             return '$' + r;
         });
@@ -169,7 +167,7 @@ function evaluateRawTextWithTmpl(text, ref) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
-    if (refBeginsWithDollar) {
+    if (DefaultConf.refBeginsWithDollar) {
         reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
         return expr.match(reg).map(function (r) {
             return r.substr(1);
@@ -243,7 +241,8 @@ function Unbind($el, ref, relation) {
  */
 var DefaultConf = {
     attrPrefix: 'm-',
-    domBoundFlag: '__dmd_bound'
+    domBoundFlag: '__dmd_bound',
+    refBeginsWithDollar: true
 };
 
 /**
@@ -257,5 +256,6 @@ var DMD = function ($el, ref) {
 
 DMD.kernel = Kernel;
 DMD.relate = Relate;
+DMD.$ = Data;
 
 export default DMD
