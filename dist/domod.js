@@ -1,7 +1,7 @@
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 	typeof define === 'function' && define.amd ? define(factory) :
-	(global.domod = factory());
+	(global.DMD = factory());
 }(this, (function () { 'use strict';
 
 var gid = (function () {
@@ -127,31 +127,6 @@ var allRefs = function (obj) {
     return refs;
 };
 
-var refData = function (root, refPath, value) {
-    var toSet = arguments.length >= 3;
-    var v = root;
-    var paths = [];
-    if (refPath) paths = refPath.split('.');
-
-    if (!toSet) {
-        while (paths.length) {
-            if (isBasic(v)) return undefined;
-            v = v[paths.shift()];
-        }
-        return v;
-    } else {
-        while (paths.length) {
-            if (isBasic(v)) return undefined;
-            if (paths.length === 1) {
-                v[paths.shift()] = value;
-            } else {
-                v = v[paths.shift()];
-            }
-        }
-        return value;
-    }
-};
-
 function addEvent($el, eventName, handler, useCapture) {
     if ($el.addEventListener) {
         $el.addEventListener(eventName, handler, !!useCapture);
@@ -189,46 +164,42 @@ var ResultsFrom = {};
 var Laziness = {};
 var PropKernelTable = {};
 var KernelStatus = {};
+var GetterSetter = {};
 
-function get(ref, root) {
-    if (root === undefined) root = Store;
-    if ((!isObject(root) && !isNode(root)) || !isString(ref)) return null;
-    var node = root;
-    var refs = ref.split('.');
-    while (refs.length >= 1) {
-        if (refs.length === 1) {
-            return {
-                target: node,
-                property: refs[0]
-            };
+var definePropertyFeature = !!Object.defineProperty;
+var useDefineProperty = false && definePropertyFeature;
+
+function defineProperty(target, prop, desc, proppath) {
+    if (useDefineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
         }
-        node = node[refs.shift()];
-        if (!isObject(node) && !isNode(node)) return null;
+        proppath = proppath || fullpathOf(prop, target);
+        if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
+        if ('get' in desc) {
+            GetterSetter[proppath].get = desc.get;
+        }
+        if ('set' in desc) {
+            GetterSetter[proppath].set = desc.set;
+        }
     }
-    return null;
-}
-
-function update(ref, root) {
-    var obj = get(ref, root);
-    if (!obj) return null;
-    var proppath = fullpathOf(ref, root);
-    if (!ResultsFrom[proppath]) return obj.target[obj.property];
-    var value = ResultsFrom[proppath].f.apply(Store, ResultsFrom[proppath].deps.map(function (p) { return update(p) }));
-    obj.target[obj.property] = value;
-    return value;
 }
 
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
-    return register(root) + '.' + ref;
+    var pre = register(root);
+    if (pre == null) return ref || '';
+    return pre + (ref ? ('.' + ref) : '');
 }
 
 function register(root) {
-    if (!isObject(root) && !isNode(root)) return null;
+    if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + gid();
         if (!isNode(root)) {
-            Object.defineProperty(root, '__kernel_root', {
+            defineProperty(root, '__kernel_root', {
                 value: id
             });
         } else {
@@ -262,31 +233,33 @@ function propKernelOrder(proppath) {
  * @constructor
  */
 function Kernel(root, path, relations) {
-    var obj = get(path, root);
-    if (obj == null) return;
+    var obj = {};
+    var value;
+    if (useDefineProperty) {
+        obj = scopeOf(path, root);
+        if (obj == null) return;
+        value = obj.target[obj.property];
+    }
+
     var proppath = register(root) + '.' + path;
     var __kid = proppath + '#' + propKernelOrder(proppath);
-    Object.defineProperty(this, '__kid', {
+    defineProperty(this, '__kid', {
         value: __kid
     });
     KernelStatus[this.__kid] = 1;
-    var value = obj.target[obj.property];
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (hasProperty(obj.target, obj.property)) {
+        if (useDefineProperty && hasProperty(obj.target, obj.property)) {
             delete obj.target[obj.property];
         }
     }
     PropKernelTable[proppath].push(1);
 
-    var dnstream = formatStream(relations.dnstream);
+    var dnstream = formatStream(relations.dnstream, root);
     var resultIn = relations.resultIn;
-    var upstream = formatStream(relations.upstream);
+    var upstream = formatStream(relations.upstream, root);
     var resultFrom = relations.resultFrom;
     var lazy = !!relations.lazy;
-    if (hasProperty(relations, 'value')) {
-        value = relations.value;
-    }
     if (!Dnstreams[proppath]) Dnstreams[proppath] = {};
     dnstream.forEach(function (p) {
         if (!Upstreams[p]) Upstreams[p] = {};
@@ -315,43 +288,61 @@ function Kernel(root, path, relations) {
     if (lazy) Laziness[proppath] = true;
 
     if (PropKernelTable[proppath].length === 1) {
-        if (!isNode(obj.target)) {
-            Object.defineProperty(obj.target, obj.property, {
-                get: function () {
-                    if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
-                        return update(proppath);
+        defineProperty(obj.target, obj.property, {
+            get: function (target, property) {
+                if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
+                    var v = ResultsFrom[proppath].f.apply(
+                        null,
+                        ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
+                    );
+                    Data(null, proppath, v);
+                    value = v;
+                } else {
+                    if (!useDefineProperty) {
+                        if (property !== undefined) {
+                            value = target[property];
+                        } else {
+                            obj = scopeOf(proppath);
+                            value = obj.target[obj.property];
+                        }
                     }
-                    return value;
-                },
-                set: function (val) {
-                    if (val === value) return;
-                    value = val;
-                    ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                        f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
-                    });
-                    if (Dnstreams[proppath]) {
-                        each(Dnstreams[proppath], function (kmap, ds) {
-                            var toUpdateDnstream = false;
-                            each(kmap, function (v, k) {
-                                if (KernelStatus[k] !== 0) {
-                                    toUpdateDnstream = true;
-                                    return false;
-                                }
-                            });
-                            toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds] && update(ds);
+                }
+                return value;
+            },
+            set: function (val, target, property) {
+                if (val === value) return;
+                value = val;
+                if (!useDefineProperty) {
+                    if (property !== undefined) {
+                        target[property] = val;
+                    } else {
+                        obj = scopeOf(proppath);
+                        obj.target[obj.property] = val;
+                    }
+                }
+                ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                });
+                if (Dnstreams[proppath]) {
+                    each(Dnstreams[proppath], function (kmap, ds) {
+                        var toUpdateDnstream = false;
+                        each(kmap, function (v, k) {
+                            if (KernelStatus[k] !== 0) {
+                                toUpdateDnstream = true;
+                                return false;
+                            }
                         });
-                    }
-                },
-                // configurable: true,
-                enumerable: true
-            });
-            obj.target[obj.property];
-            // obj.target[obj.property] = obj.target[obj.property];
-        } else {
-            if (isFunction(resultFrom)) {
-                obj.target[obj.property] = resultFrom();
-            }
-        }
+                        toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds] && Data(null, ds);
+                    });
+                }
+            },
+            // configurable: true,
+            enumerable: true
+        }, proppath);
+    }
+
+    if (hasProperty(relations, 'value')) {
+        Data(null, proppath, relations.value);
     }
 }
 
@@ -422,9 +413,55 @@ function Relate(obj, relations) {
     return obj;
 }
 
-// import './Polyfill'
-var refBeginsWithDollar = true;
+/**
+ * Get the target and property.
+ * @param {String} ref 
+ * @param {Object} root 
+ */
+function scopeOf(ref, root) {
+    if (root === undefined) root = Store;
+    if ((!isObject(root) && !isNode(root)) || !isString(ref)) return null;
+    var fullpath = fullpathOf(ref, root);
+    var lastDot = fullpath.lastIndexOf('.');
+    return {
+        target: Data(null, fullpath.substring(0, lastDot)),
+        property: fullpath.substring(lastDot + 1)
+    };
+}
 
+/**
+ * Get or set data, and trigger getters or setters.
+ */
+function Data(root, refPath, value) {
+    root = root || Store;
+    var toSet = arguments.length >= 3;
+    var v = root;
+    var proppath = fullpathOf(null, root);
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+    var p;
+
+    while (paths.length) {
+        if (isBasic(v)) return undefined;
+        p = paths.shift();
+        proppath += (proppath === '' ? '' : '.') + p;
+        if (toSet && paths.length === 0) { /* set */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
+                GetterSetter[proppath].set(value, v, p);
+            }
+            v[p] = value;
+        } else { /* get */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
+                v = GetterSetter[proppath].get(v, p);
+            } else {
+                v = v[p];
+            }
+        }
+    }
+    return toSet ? value : v;
+}
+
+// import './Polyfill'
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
@@ -444,7 +481,7 @@ function Bind($el, ref) {
             switch (name) {
             case 'value':
                 addEvent($el, 'input', function (e) {
-                    refData(ref, refBeginsWithDollar ? value.substr(1) : value, this.value);
+                    Data(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
                 }, false);
                 Relate(ref, relationFromExprToRef(value, ref, $el, name));
                 break;
@@ -488,7 +525,7 @@ function Bind($el, ref) {
             default:
                 var eventName = isEventName(name);
                 var params = Object.keys(ref);
-                if (refBeginsWithDollar) {
+                if (DefaultConf.refBeginsWithDollar) {
                     params = params.map(function (r) {
                         return '$' + r;
                     });
@@ -536,7 +573,7 @@ function Bind($el, ref) {
 function evaluateExpression(expr, ref) {
     expr = replaceTmplInStrLiteral(expr);
     var params = Object.keys(ref);
-    if (refBeginsWithDollar) {
+    if (DefaultConf.refBeginsWithDollar) {
         params = params.map(function (r) {
             return '$' + r;
         });
@@ -590,7 +627,7 @@ function evaluateRawTextWithTmpl(text, ref) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
-    if (refBeginsWithDollar) {
+    if (DefaultConf.refBeginsWithDollar) {
         reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
         return expr.match(reg).map(function (r) {
             return r.substr(1);
@@ -628,12 +665,12 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
     function getAllRefs(expr, ref) {
         var subData = {};
         each(parseRefsInExpr(expr), function (r) {
-            subData[r] = refData(ref, r);
+            subData[r] = Data(ref, r);
         });
         return allRefs(subData);
     }
     var resultIn = function () {
-        refData(target, proppath, (resultFrom || function () {
+        Data(target, proppath, (resultFrom || function () {
             return evaluateExpression(expr, ref);
         })());
     };
@@ -653,7 +690,8 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
  */
 var DefaultConf = {
     attrPrefix: 'm-',
-    domBoundFlag: '__dmd_bound'
+    domBoundFlag: '__dmd_bound',
+    refBeginsWithDollar: true
 };
 
 /**
@@ -667,6 +705,7 @@ var DMD = function ($el, ref) {
 
 DMD.kernel = Kernel;
 DMD.relate = Relate;
+DMD.$ = Data;
 
 return DMD;
 

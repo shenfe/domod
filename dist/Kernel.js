@@ -33,6 +33,14 @@ var isArray = function (v) {
     return Object.prototype.toString.call(v) === '[object Array]';
 };
 
+var isBasic = function (v) {
+    return v == null
+        || typeof v === 'boolean'
+        || typeof v === 'number'
+        || typeof v === 'string'
+        || typeof v === 'function';
+};
+
 var isNode = function (v) {
     if (typeof Node !== 'function') return false;
     return v instanceof Node;
@@ -43,47 +51,46 @@ var isNamedNodeMap = function (v) {
 };
 
 var each = function (v, func, arrayReverse) {
+    var i;
+    var len;
     if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
-            var r = func(v[p], p);
-            if (r === false) break;
+            if (func(v[p], p) === false) break;
         }
     } else if (isArray(v)) {
         if (!arrayReverse) {
-            for (var i = 0, len = v.length; i < len; i++) {
-                var r = func(v[i], i);
-                if (r === false) break;
+            for (i = 0, len = v.length; i < len; i++) {
+                if (func(v[i], i) === false) break;
             }
         } else {
-            for (var i = v.length - 1; i >= 0; i--) {
-                var r = func(v[i], i);
-                if (r === false) break;
+            for (i = v.length - 1; i >= 0; i--) {
+                if (func(v[i], i) === false) break;
             }
         }
     } else if (isNode(v)) {
         var ret = false;
         switch (v.nodeType) {
-            case Node.ELEMENT_NODE:
-                break;
-            case Node.TEXT_NODE:
-            case Node.COMMENT_NODE:
-            case Node.PROCESSING_INSTRUCTION_NODE:
-            case Node.DOCUMENT_NODE:
-            case Node.DOCUMENT_TYPE_NODE:
-            case Node.DOCUMENT_FRAGMENT_NODE:
-            default:
-                ret = true;
+        case Node.ELEMENT_NODE:
+            break;
+        case Node.TEXT_NODE:
+        case Node.COMMENT_NODE:
+        case Node.PROCESSING_INSTRUCTION_NODE:
+        case Node.DOCUMENT_NODE:
+        case Node.DOCUMENT_TYPE_NODE:
+        case Node.DOCUMENT_FRAGMENT_NODE:
+        default:
+            ret = true;
         }
         if (ret) return;
-        for (var i = 0, childNodes = v.childNodes, len = v.childNodes.length; i < len; i++) {
+        var childNodes = v.childNodes;
+        for (i = 0, len = childNodes.length; i < len; i++) {
             func(childNodes[i]);
             each(childNodes[i], func);
         }
     } else if (isNamedNodeMap(v)) {
-        for (var i = 0, len = v.length; i < len; i++) {
-            var r = func(v[i]['nodeValue'], v[i]['nodeName']);
-            if (r === false) break;
+        for (i = 0, len = v.length; i < len; i++) {
+            if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
     } else if (v && isFunction(v.forEach)) {
         v.forEach(func);
@@ -110,8 +117,9 @@ function flatten(root, objectFilter, clean) {
                 ext[p + '.' + pp] = vv;
             });
         } else {
-            if (objectFilter(v) || !clean)
+            if (objectFilter(v) || !clean) {
                 ext[p] = v;
+            }
         }
     });
     return ext;
@@ -125,46 +133,42 @@ var ResultsFrom = {};
 var Laziness = {};
 var PropKernelTable = {};
 var KernelStatus = {};
+var GetterSetter = {};
 
-function get(ref, root) {
-    if (root === undefined) root = Store;
-    if ((!isObject(root) && !isNode(root)) || !isString(ref)) return null;
-    var node = root;
-    var refs = ref.split('.');
-    while (refs.length >= 1) {
-        if (refs.length === 1) {
-            return {
-                target: node,
-                property: refs[0]
-            };
+var definePropertyFeature = !!Object.defineProperty;
+var useDefineProperty = false && definePropertyFeature;
+
+function defineProperty(target, prop, desc, proppath) {
+    if (useDefineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
         }
-        node = node[refs.shift()];
-        if (!isObject(node) && !isNode(node)) return null;
+        proppath = proppath || fullpathOf(prop, target);
+        if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
+        if ('get' in desc) {
+            GetterSetter[proppath].get = desc.get;
+        }
+        if ('set' in desc) {
+            GetterSetter[proppath].set = desc.set;
+        }
     }
-    return null;
-}
-
-function update(ref, root) {
-    var obj = get(ref, root);
-    if (!obj) return null;
-    var proppath = fullpathOf(ref, root);
-    if (!ResultsFrom[proppath]) return obj.target[obj.property];
-    var value = ResultsFrom[proppath].f.apply(Store, ResultsFrom[proppath].deps.map(function (p) { return update(p) }));
-    obj.target[obj.property] = value;
-    return value;
 }
 
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
-    return register(root) + '.' + ref;
+    var pre = register(root);
+    if (pre == null) return ref || '';
+    return pre + (ref ? ('.' + ref) : '');
 }
 
 function register(root) {
-    if (!isObject(root) && !isNode(root)) return null;
+    if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + gid();
         if (!isNode(root)) {
-            Object.defineProperty(root, '__kernel_root', {
+            defineProperty(root, '__kernel_root', {
                 value: id
             });
         } else {
@@ -198,30 +202,33 @@ function propKernelOrder(proppath) {
  * @constructor
  */
 function Kernel(root, path, relations) {
-    var obj = get(path, root);
-    if (obj == null) return;
+    var obj = {};
+    var value;
+    if (useDefineProperty) {
+        obj = scopeOf(path, root);
+        if (obj == null) return;
+        value = obj.target[obj.property];
+    }
+
     var proppath = register(root) + '.' + path;
     var __kid = proppath + '#' + propKernelOrder(proppath);
-    Object.defineProperty(this, '__kid', {
+    defineProperty(this, '__kid', {
         value: __kid
     });
     KernelStatus[this.__kid] = 1;
-    var value = obj.target[obj.property];
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (hasProperty(obj.target, obj.property))
+        if (useDefineProperty && hasProperty(obj.target, obj.property)) {
             delete obj.target[obj.property];
+        }
     }
     PropKernelTable[proppath].push(1);
 
-    var dnstream = formatStream(relations.dnstream);
+    var dnstream = formatStream(relations.dnstream, root);
     var resultIn = relations.resultIn;
-    var upstream = formatStream(relations.upstream);
+    var upstream = formatStream(relations.upstream, root);
     var resultFrom = relations.resultFrom;
     var lazy = !!relations.lazy;
-    if (hasProperty(relations, 'value')) {
-        value = relations.value;
-    }
     if (!Dnstreams[proppath]) Dnstreams[proppath] = {};
     dnstream.forEach(function (p) {
         if (!Upstreams[p]) Upstreams[p] = {};
@@ -240,51 +247,71 @@ function Kernel(root, path, relations) {
         if (!Dnstreams[p][proppath]) Dnstreams[p][proppath] = {};
         Dnstreams[p][proppath][__kid] = 1;
     });
-    if (isFunction(resultFrom)) ResultsFrom[proppath] = {
-        f: resultFrom,
-        k: this.__kid,
-        deps: upstream
-    };
+    if (isFunction(resultFrom)) {
+        ResultsFrom[proppath] = {
+            f: resultFrom,
+            k: this.__kid,
+            deps: upstream
+        };
+    }
     if (lazy) Laziness[proppath] = true;
 
     if (PropKernelTable[proppath].length === 1) {
-        if (!isNode(obj.target)) {
-            Object.defineProperty(obj.target, obj.property, {
-                get: function () {
-                    if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
-                        return update(proppath);
+        defineProperty(obj.target, obj.property, {
+            get: function (target, property) {
+                if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
+                    var v = ResultsFrom[proppath].f.apply(
+                        null,
+                        ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
+                    );
+                    Data(null, proppath, v);
+                    value = v;
+                } else {
+                    if (!useDefineProperty) {
+                        if (property !== undefined) {
+                            value = target[property];
+                        } else {
+                            obj = scopeOf(proppath);
+                            value = obj.target[obj.property];
+                        }
                     }
-                    return value;
-                },
-                set: function (val) {
-                    if (val === value) return;
-                    value = val;
-                    ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                        f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
-                    });
-                    if (Dnstreams[proppath]) {
-                        each(Dnstreams[proppath], function (kmap, ds) {
-                            var toUpdateDnstream = false;
-                            each(kmap, function (v, k) {
-                                if (KernelStatus[k] !== 0) {
-                                    toUpdateDnstream = true;
-                                    return false;
-                                }
-                            });
-                            if (toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds])
-                                update(ds);
+                }
+                return value;
+            },
+            set: function (val, target, property) {
+                if (val === value) return;
+                value = val;
+                if (!useDefineProperty) {
+                    if (property !== undefined) {
+                        target[property] = val;
+                    } else {
+                        obj = scopeOf(proppath);
+                        obj.target[obj.property] = val;
+                    }
+                }
+                ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                });
+                if (Dnstreams[proppath]) {
+                    each(Dnstreams[proppath], function (kmap, ds) {
+                        var toUpdateDnstream = false;
+                        each(kmap, function (v, k) {
+                            if (KernelStatus[k] !== 0) {
+                                toUpdateDnstream = true;
+                                return false;
+                            }
                         });
-                    }
-                },
-                // configurable: true,
-                enumerable: true
-            });
-            obj.target[obj.property];
-            // obj.target[obj.property] = obj.target[obj.property];
-        } else {
-            if (isFunction(resultFrom))
-                obj.target[obj.property] = resultFrom();
-        }
+                        toUpdateDnstream && ResultsFrom[ds] && !Laziness[ds] && Data(null, ds);
+                    });
+                }
+            },
+            // configurable: true,
+            enumerable: true
+        }, proppath);
+    }
+
+    if (hasProperty(relations, 'value')) {
+        Data(null, proppath, relations.value);
     }
 }
 
@@ -355,8 +382,57 @@ function Relate(obj, relations) {
     return obj;
 }
 
+/**
+ * Get the target and property.
+ * @param {String} ref 
+ * @param {Object} root 
+ */
+function scopeOf(ref, root) {
+    if (root === undefined) root = Store;
+    if ((!isObject(root) && !isNode(root)) || !isString(ref)) return null;
+    var fullpath = fullpathOf(ref, root);
+    var lastDot = fullpath.lastIndexOf('.');
+    return {
+        target: Data(null, fullpath.substring(0, lastDot)),
+        property: fullpath.substring(lastDot + 1)
+    };
+}
+
+/**
+ * Get or set data, and trigger getters or setters.
+ */
+function Data(root, refPath, value) {
+    root = root || Store;
+    var toSet = arguments.length >= 3;
+    var v = root;
+    var proppath = fullpathOf(null, root);
+    var paths = [];
+    if (refPath) paths = refPath.split('.');
+    var p;
+
+    while (paths.length) {
+        if (isBasic(v)) return undefined;
+        p = paths.shift();
+        proppath += (proppath === '' ? '' : '.') + p;
+        if (toSet && paths.length === 0) { /* set */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
+                GetterSetter[proppath].set(value, v, p);
+            }
+            v[p] = value;
+        } else { /* get */
+            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
+                v = GetterSetter[proppath].get(v, p);
+            } else {
+                v = v[p];
+            }
+        }
+    }
+    return toSet ? value : v;
+}
+
 exports.Kernel = Kernel;
 exports.Relate = Relate;
+exports.Data = Data;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

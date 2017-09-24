@@ -21,7 +21,7 @@ function Bind($el, ref) {
             switch (name) {
             case 'value':
                 Util.addEvent($el, 'input', function (e) {
-                    Util.refData(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
+                    Data(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
                 }, false);
                 Relate(ref, relationFromExprToRef(value, ref, $el, name));
                 break;
@@ -205,12 +205,12 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
     function getAllRefs(expr, ref) {
         var subData = {};
         Util.each(parseRefsInExpr(expr), function (r) {
-            subData[r] = Util.refData(ref, r);
+            subData[r] = Data(ref, r);
         });
         return Util.allRefs(subData);
     }
     var resultIn = function () {
-        Util.refData(target, proppath, (resultFrom || function () {
+        Data(target, proppath, (resultFrom || function () {
             return evaluateExpression(expr, ref);
         })());
     };

@@ -15,6 +15,7 @@
     <script src="../dist/domod.js" charset="utf-8"></script>
     <input id="input1" type="text" m-value="$value">
     <div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$value}}</div>
+    <div m-style="{ display: $color === 'green' ? 'block' : 'none' }">{{$value}} is ok!</div>
     <script>
         var store = {
             value: '1'
@@ -23,14 +24,13 @@
             color: {
                 upstream: 'value',
                 resultFrom: function () {
-                    var newVal = isNaN(parseInt(store.value)) ? 'red' : 'green';
+                    var newVal = isNaN(parseInt(DMD.$(store, 'value'))) ? 'red' : 'green';
                     console.log(`color is ${newVal}`);
                     return newVal;
                 }
             }
         });
-        DMD(document.getElementById('input1'), store);
-        DMD(document.getElementById('div1'), store);
+        DMD(document.body, store);
     </script>
 </body>
 </html>
