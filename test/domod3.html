@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,11 +13,22 @@
 <body>
     <script src="../dist/domod.js" charset="utf-8"></script>
     <input id="input1" type="text" m-value="$value">
-    <div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$value}}</div>
+    <div id="div1" m-class="['some-class', { red: $color === 'red' }]" m-style="{ display: !!$value ? 'block' : 'none' }">You input: {{$parse($value)}}</div>
     <div m-style="{ display: $color === 'green' ? 'block' : 'none' }">{{$value}} is ok!</div>
+    <form action="">
+        <input type="text" name="mobile">
+    </form>
     <script>
         var store = {
-            value: '1'
+            value: '1',
+            parse: function (v) {
+                return parseInt(v);
+            },
+            form: {
+                gender: 0,
+                mobile: '15210001000',
+                age: '0-18'
+            }
         };
         DMD.relate(store, {
             color: {
