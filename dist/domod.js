@@ -535,8 +535,10 @@ function Bind($el, ref) {
                         new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
                     }, false);
                 } else { /* Attribute */
-                    var resultIn = function (v) {
-                        $el.setAttribute(name, new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref)));
+                    var resultIn = function () {
+                        var v = new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref));
+                        $el.setAttribute(name, v);
+                        return v;
                     };
                     var rels = {};
                     each(parseRefsInExpr(value), function (r) {
@@ -545,6 +547,9 @@ function Bind($el, ref) {
                         };
                     });
                     Relate(ref, rels);
+                    if (resultIn() === undefined) {
+                        attrList.push(name);
+                    }
                 }
             }
         });
