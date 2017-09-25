@@ -263,7 +263,7 @@ var allRefs = function (obj) {
     each(obj, function (v, p) {
         if (isObject(v)) {
             var f = allRefs(v);
-            each(f, function (vv, pp) {
+            each(f, function (pp) {
                 refs.push(p + '.' + pp);
             });
         } else {

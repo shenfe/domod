@@ -62,6 +62,9 @@ function Bind($el, ref) {
                     return stylePairs.join(';');
                 }));
                 break;
+            case 'each':
+                // TODO
+                break;
             default:
                 var eventName = Util.isEventName(name);
                 var params = Object.keys(ref);
@@ -184,6 +187,14 @@ function parseRefsInExpr(expr) {
 }
 
 /**
+ * Parse `each` template expression from an attribute value string.
+ * @param {String} expr 
+ */
+function parseEachExpr(expr) {
+    // TODO
+}
+
+/**
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
  * @return {Array<String>}  [description]
@@ -220,7 +231,8 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
         })());
     };
     var r = {};
-    getAllRefs(expr, ref).forEach(function (ref) {
+    var ar = getAllRefs(expr, ref);
+    ar.forEach(function (ref) {
         r[ref] = {
             resultIn: resultIn
         };

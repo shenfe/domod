@@ -117,7 +117,7 @@ var allRefs = function (obj) {
     each(obj, function (v, p) {
         if (isObject(v)) {
             var f = allRefs(v);
-            each(f, function (vv, pp) {
+            each(f, function (pp) {
                 refs.push(p + '.' + pp);
             });
         } else {
@@ -167,7 +167,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = false && definePropertyFeature;
+var useDefineProperty = true && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty) {
@@ -680,7 +680,8 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
         })());
     };
     var r = {};
-    getAllRefs(expr, ref).forEach(function (ref) {
+    var ar = getAllRefs(expr, ref);
+    ar.forEach(function (ref) {
         r[ref] = {
             resultIn: resultIn
         };

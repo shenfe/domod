@@ -51,16 +51,31 @@
                 }
             }
         };
+
+        /* Declare a computed property: */
+        // DMD.relate(store, {
+        //     mobileInputStatus: {
+        //         upstream: 'form.mobile',
+        //         resultFrom: function () {
+        //             var newVal = /^1[3|4|5|8][0-9]\d{8}$/.test(DMD.$(store, 'form.mobile'));
+        //             console.log(`mobile is ${newVal}`);
+        //             return newVal;
+        //         }
+        //     }
+        // });
+
+        /* Watch a property mutation */
         DMD.relate(store, {
-            mobileInputStatus: {
-                upstream: 'form.mobile',
-                resultFrom: function () {
-                    var newVal = /^1[3|4|5|8][0-9]\d{8}$/.test(DMD.$(store, 'form.mobile'));
+            'form.mobile': {
+                dnstream: 'mobileInputStatus',
+                resultIn: function (v) {
+                    var newVal = /^1[3|4|5|8][0-9]\d{8}$/.test(v);
                     console.log(`mobile is ${newVal}`);
-                    return newVal;
+                    DMD.$(store, 'mobileInputStatus', newVal);
                 }
             }
         });
+
         DMD(document.body, store);
     </script>
 </body>
