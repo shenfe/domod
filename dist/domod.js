@@ -167,7 +167,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = true && definePropertyFeature;
+var useDefineProperty = false && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty) {
@@ -461,112 +461,35 @@ function Data(root, refPath, value) {
     return toSet ? value : v;
 }
 
-// import './Polyfill'
 /**
- * Bind data to DOM.
- * @param  {HTMLElement} $el            [description]
- * @param  {Object} ref                 [description]
- * @return {[type]}                     [description]
+ * Default configurations.
+ * @type {Object}
  */
-function Bind($el, ref) {
-    if (!isNode($el) || !isObject(ref)) return;
+var conf$1 = {
+    refBeginsWithDollar: true,
+    attrsFlag: 'attrs.'
+};
 
-    if ($el.nodeType === Node.ELEMENT_NODE && !$el[DefaultConf.domBoundFlag]) {
-        $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
-        var attrList = [];
-        each($el.attributes, function (value, name) {
-            if (!name.startsWith(DefaultConf.attrPrefix)) return;
-            attrList.push(name);
-            name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
-            switch (name) {
-            case 'value':
-                addEvent($el, 'input', function (e) {
-                    Data(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
-                }, false);
-                Relate(ref, relationFromExprToRef(value, ref, $el, name));
-                break;
-            case 'innertext':
-            case 'innerhtml':
-                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
-                break;
-            case 'class':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
-                    var re = evaluateExpression(value, ref);
-                    var classList = [];
-                    if (isObject(re)) {
-                        each(re, function (v, p) {
-                            v && classList.push(p);
-                        });
-                    } else if (isArray(re)) {
-                        each(re, function (v) {
-                            if (isString(v)) classList.push(v);
-                            else if (isObject(v)) {
-                                each(v, function (vv, pp) {
-                                    vv && classList.push(pp);
-                                });
-                            }
-                        });
-                    }
-                    return classList.join(' ');
-                }));
-                break;
-            case 'style':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
-                    var re = evaluateExpression(value, ref);
-                    var stylePairs = [];
-                    if (isObject(re)) {
-                        each(re, function (v, p) {
-                            stylePairs.push(p + ':' + v);
-                        });
-                    }
-                    return stylePairs.join(';');
-                }));
-                break;
-            default:
-                var eventName = isEventName(name);
-                var params = Object.keys(ref);
-                if (DefaultConf.refBeginsWithDollar) {
-                    params = params.map(function (r) {
-                        return '$' + r;
-                    });
-                }
-                if (eventName) { /* Event */
-                    addEvent($el, eventName, function (e) {
-                        new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
-                    }, false);
-                } else { /* Attribute */
-                    var resultIn = function () {
-                        var v = new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref));
-                        $el.setAttribute(name, v);
-                        return v;
-                    };
-                    var rels = {};
-                    each(parseRefsInExpr(value), function (r) {
-                        rels[r] = {
-                            resultIn: resultIn
-                        };
-                    });
-                    Relate(ref, rels);
-                    if (resultIn() === undefined) {
-                        attrList.push(name);
-                    }
-                }
-            }
+/**
+ * Execute a function with a data object as the scope.
+ * @param {String} expr 
+ * @param {Object} ref 
+ * @param {*} target 
+ */
+function executeFunctionWithScope(expr, ref, target) {
+    var params = Object.keys(ref);
+    if (conf$1.refBeginsWithDollar) {
+        params = params.map(function (r) {
+            return '$' + r;
         });
-        each(attrList, function (name) {
-            $el.removeAttribute(name);
-        });
-        each($el, function (node) {
-            Bind(node, ref);
-        });
-    } else if ($el.nodeType === Node.TEXT_NODE) {
-        var tmpl = $el.nodeValue;
-        var expr = parseExprsInRawText(tmpl).join(';');
-        if (expr === '') return;
-        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
-            return evaluateRawTextWithTmpl(tmpl, ref);
-        }));
     }
+    var args = Object.values(ref);
+    // Util.each(args, function (v, i) {
+    //     if (Util.isFunction(v)) {
+    //         args[i] = v.bind(ref);
+    //     }
+    // });
+    return (new Function(params.join(','), 'return (' + expr + ')')).apply(target || ref, args);
 }
 
 /**
@@ -577,21 +500,9 @@ function Bind($el, ref) {
  */
 function evaluateExpression(expr, ref) {
     expr = replaceTmplInStrLiteral(expr);
-    var params = Object.keys(ref);
-    if (DefaultConf.refBeginsWithDollar) {
-        params = params.map(function (r) {
-            return '$' + r;
-        });
-    }
-    var args = Object.values(ref);
-    each(args, function (v, i) {
-        if (isFunction(v)) {
-            args[i] = v.bind(ref);
-        }
-    });
     var result = null;
     try {
-        result = (new Function(params.join(','), 'return ' + expr)).apply(ref, args);
+        result = executeFunctionWithScope(expr, ref);
     } catch (e) {}
     return result;
 }
@@ -632,7 +543,7 @@ function evaluateRawTextWithTmpl(text, ref) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
-    if (DefaultConf.refBeginsWithDollar) {
+    if (conf$1.refBeginsWithDollar) {
         reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
         return expr.match(reg).map(function (r) {
             return r.substr(1);
@@ -660,7 +571,7 @@ function parseExprsInRawText(text) {
 }
 
 /**
- * Get relations from an expression string to the data.
+ * Get relations from an expression string to the data, and apply in time as well.
  * @param {String}      expr 
  * @param {Object}      ref 
  * @param {Function}    resultFrom 
@@ -674,10 +585,48 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
         });
         return allRefs(subData);
     }
+    var targetIsNode = isNode(target);
     var resultIn = function () {
-        Data(target, proppath, (resultFrom || function () {
+        var result = (resultFrom || function () {
             return evaluateExpression(expr, ref);
-        })());
+        })();
+
+        /* Transformation */
+        if (targetIsNode && proppath === 'className') {
+            var classList = [];
+            if (isObject(result)) {
+                each(result, function (v, p) {
+                    v && classList.push(p);
+                });
+            } else if (isArray(result)) {
+                each(result, function (v) {
+                    if (isString(v)) classList.push(v);
+                    else if (isObject(v)) {
+                        each(v, function (vv, pp) {
+                            vv && classList.push(pp);
+                        });
+                    }
+                });
+            }
+            result = classList.join(' ');
+        } else if (targetIsNode && proppath === 'style.cssText') {
+            var stylePairs = [];
+            if (isObject(result)) {
+                each(result, function (v, p) {
+                    stylePairs.push(p + ':' + v);
+                });
+            }
+            result = stylePairs.join(';');
+        }
+
+        if (targetIsNode && proppath.startsWith(conf$1.attrsFlag)) {
+            if (result != null) {
+                var attrName = proppath.substr(conf$1.attrsFlag.length);
+                target.setAttribute(attrName, result);
+            }
+        } else {
+            Data(target, proppath, result);
+        }
     };
     var r = {};
     var ar = getAllRefs(expr, ref);
@@ -690,15 +639,78 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
     return r;
 }
 
+// import './Polyfill'
 /**
  * Default configurations.
  * @type {Object}
  */
-var DefaultConf = {
+var conf = {
     attrPrefix: 'm-',
-    domBoundFlag: '__dmd_bound',
-    refBeginsWithDollar: true
+    domBoundFlag: '__dmd_bound'
 };
+
+/**
+ * Bind data to DOM.
+ * @param  {HTMLElement} $el            [description]
+ * @param  {Object} ref                 [description]
+ * @return {[type]}                     [description]
+ */
+function Bind($el, ref) {
+    if (!isNode($el) || !isObject(ref)) return;
+
+    if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
+        $el[conf.domBoundFlag] = true; /* Set a binding flag. */
+        var attrList = [];
+        each($el.attributes, function (value, name) {
+            if (!name.startsWith(conf.attrPrefix)) return;
+            attrList.push(name);
+            name = name.substr(conf.attrPrefix.length).toLowerCase();
+            switch (name) {
+            case 'value':
+                addEvent($el, 'input', function (e) {
+                    Data(ref, conf$1.refBeginsWithDollar ? value.substr(1) : value, this.value);
+                }, false);
+                Relate(ref, relationFromExprToRef(value, ref, $el, name));
+                break;
+            case 'innertext':
+            case 'innerhtml':
+                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
+                break;
+            case 'class':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'className'));
+                break;
+            case 'style':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText'));
+                break;
+            case 'each':
+                // TODO
+                break;
+            default:
+                var eventName = isEventName(name);
+                if (eventName) { /* Event */
+                    addEvent($el, eventName, function (e) {
+                        executeFunctionWithScope(value, ref, $el);
+                    }, false);
+                } else { /* Attribute */
+                    Relate(ref, relationFromExprToRef(value, ref, $el, conf$1.attrsFlag + name));
+                }
+            }
+        });
+        each(attrList, function (name) {
+            $el.removeAttribute(name);
+        });
+        each($el, function (node) {
+            Bind(node, ref);
+        });
+    } else if ($el.nodeType === Node.TEXT_NODE) {
+        var tmpl = $el.nodeValue;
+        var expr = parseExprsInRawText(tmpl).join(';');
+        if (expr === '') return;
+        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
+            return evaluateRawTextWithTmpl(tmpl, ref);
+        }));
+    }
+}
 
 /**
  * Constructor.

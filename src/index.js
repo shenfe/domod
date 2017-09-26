@@ -1,6 +1,16 @@
 // import './Polyfill'
 import * as Util from './Util'
 import { Kernel, Relate, Data } from './Kernel'
+import * as Parser from './Parser'
+
+/**
+ * Default configurations.
+ * @type {Object}
+ */
+var conf = {
+    attrPrefix: 'm-',
+    domBoundFlag: '__dmd_bound'
+};
 
 /**
  * Bind data to DOM.
@@ -11,88 +21,41 @@ import { Kernel, Relate, Data } from './Kernel'
 function Bind($el, ref) {
     if (!Util.isNode($el) || !Util.isObject(ref)) return;
 
-    if ($el.nodeType === Node.ELEMENT_NODE && !$el[DefaultConf.domBoundFlag]) {
-        $el[DefaultConf.domBoundFlag] = true; /* Set a binding flag. */
+    if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
+        $el[conf.domBoundFlag] = true; /* Set a binding flag. */
         var attrList = [];
         Util.each($el.attributes, function (value, name) {
-            if (!name.startsWith(DefaultConf.attrPrefix)) return;
+            if (!name.startsWith(conf.attrPrefix)) return;
             attrList.push(name);
-            name = name.substr(DefaultConf.attrPrefix.length).toLowerCase();
+            name = name.substr(conf.attrPrefix.length).toLowerCase();
             switch (name) {
             case 'value':
                 Util.addEvent($el, 'input', function (e) {
-                    Data(ref, DefaultConf.refBeginsWithDollar ? value.substr(1) : value, this.value);
+                    Data(ref, Parser.conf.refBeginsWithDollar ? value.substr(1) : value, this.value);
                 }, false);
-                Relate(ref, relationFromExprToRef(value, ref, $el, name));
+                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, name));
                 break;
             case 'innertext':
             case 'innerhtml':
-                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
+                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
                 break;
             case 'class':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'className', function () {
-                    var re = evaluateExpression(value, ref);
-                    var classList = [];
-                    if (Util.isObject(re)) {
-                        Util.each(re, function (v, p) {
-                            v && classList.push(p);
-                        });
-                    } else if (Util.isArray(re)) {
-                        Util.each(re, function (v) {
-                            if (Util.isString(v)) classList.push(v);
-                            else if (Util.isObject(v)) {
-                                Util.each(v, function (vv, pp) {
-                                    vv && classList.push(pp);
-                                });
-                            }
-                        });
-                    }
-                    return classList.join(' ');
-                }));
+                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'className'));
                 break;
             case 'style':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText', function () {
-                    var re = evaluateExpression(value, ref);
-                    var stylePairs = [];
-                    if (Util.isObject(re)) {
-                        Util.each(re, function (v, p) {
-                            stylePairs.push(p + ':' + v);
-                        });
-                    }
-                    return stylePairs.join(';');
-                }));
+                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'style.cssText'));
                 break;
             case 'each':
                 // TODO
                 break;
             default:
                 var eventName = Util.isEventName(name);
-                var params = Object.keys(ref);
-                if (DefaultConf.refBeginsWithDollar) {
-                    params = params.map(function (r) {
-                        return '$' + r;
-                    });
-                }
                 if (eventName) { /* Event */
                     Util.addEvent($el, eventName, function (e) {
-                        new Function(['e'].concat(params).join(','), value).apply($el, Object.values(ref));
+                        Parser.executeFunctionWithScope(value, ref, $el);
                     }, false);
                 } else { /* Attribute */
-                    var resultIn = function () {
-                        var v = new Function(params.join(','), 'return ' + value).apply($el, Object.values(ref));
-                        $el.setAttribute(name, v);
-                        return v;
-                    };
-                    var rels = {};
-                    Util.each(parseRefsInExpr(value), function (r) {
-                        rels[r] = {
-                            resultIn: resultIn
-                        };
-                    });
-                    Relate(ref, rels);
-                    if (resultIn() === undefined) {
-                        attrList.push(name);
-                    }
+                    Relate(ref, Parser.relationFromExprToRef(value, ref, $el, Parser.conf.attrsFlag + name));
                 }
             }
         });
@@ -104,141 +67,12 @@ function Bind($el, ref) {
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var tmpl = $el.nodeValue;
-        var expr = parseExprsInRawText(tmpl).join(';');
+        var expr = Parser.parseExprsInRawText(tmpl).join(';');
         if (expr === '') return;
-        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
-            return evaluateRawTextWithTmpl(tmpl, ref);
+        Relate(ref, Parser.relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
+            return Parser.evaluateRawTextWithTmpl(tmpl, ref);
         }));
     }
-}
-
-/**
- * Evaluate an expression with a data object.
- * @param {String} expr 
- * @param {Object} ref 
- * @return {*}
- */
-function evaluateExpression(expr, ref) {
-    expr = replaceTmplInStrLiteral(expr);
-    var params = Object.keys(ref);
-    if (DefaultConf.refBeginsWithDollar) {
-        params = params.map(function (r) {
-            return '$' + r;
-        });
-    }
-    var args = Object.values(ref);
-    Util.each(args, function (v, i) {
-        if (Util.isFunction(v)) {
-            args[i] = v.bind(ref);
-        }
-    });
-    var result = null;
-    try {
-        result = (new Function(params.join(','), 'return ' + expr)).apply(ref, args);
-    } catch (e) {}
-    return result;
-}
-
-/**
- * Fix template strings in a string literal to JavaScript string-concat expressions.
- * @param {String} str 
- * @return {String}
- * @example "'My name is {{name}}.'" => "'My name is ' + (name) + '.'"
- */
-function replaceTmplInStrLiteral(str) {
-    var reg = /{{([^{}]*)}}/g;
-    return str.replace(reg, function (match, p1) {
-        return '\' + (' + p1 + ') + \'';
-    });
-}
-
-/**
- * Evaluate a raw text with template expressions.
- * @param {String} text 
- * @param {Object} ref 
- * @return {String}
- * @example ('My name is {{name}}.', { name: 'Tom' }) => 'My name is Tom.'
- */
-function evaluateRawTextWithTmpl(text, ref) {
-    var reg = /{{([^{}]*)}}/g;
-    var result = text.replace(reg, function (match, p1) {
-        return evaluateExpression(p1, ref);
-    });
-    return result;
-}
-
-/**
- * Parse reference paths from an expression string.
- * @param {String} expr 
- * @return {Array<String>}
- */
-function parseRefsInExpr(expr) {
-    expr = ';' + expr + ';';
-    var reg;
-    if (DefaultConf.refBeginsWithDollar) {
-        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg).map(function (r) {
-            return r.substr(1);
-        });
-    } else {
-        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg);
-    }
-}
-
-/**
- * Parse `each` template expression from an attribute value string.
- * @param {String} expr 
- */
-function parseEachExpr(expr) {
-    // TODO
-}
-
-/**
- * Parse template expression strings from a raw text such as a text node value.
- * @param {String} text     [description]
- * @return {Array<String>}  [description]
- * @example 'My name is {{name}}. I\'m {{age}} years old.' => ['name', 'age']
- */
-function parseExprsInRawText(text) {
-    var reg = /{{([^{}]*)}}/g;
-    var exprs = [];
-    text.replace(reg, function (match, p1) {
-        exprs.push(p1);
-        return '';
-    });
-    return exprs;
-}
-
-/**
- * Get relations from an expression string to the data.
- * @param {String}      expr 
- * @param {Object}      ref 
- * @param {Function}    resultFrom 
- * @return {Object}
- */
-function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
-    function getAllRefs(expr, ref) {
-        var subData = {};
-        Util.each(parseRefsInExpr(expr), function (r) {
-            subData[r] = Data(ref, r);
-        });
-        return Util.allRefs(subData);
-    }
-    var resultIn = function () {
-        Data(target, proppath, (resultFrom || function () {
-            return evaluateExpression(expr, ref);
-        })());
-    };
-    var r = {};
-    var ar = getAllRefs(expr, ref);
-    ar.forEach(function (ref) {
-        r[ref] = {
-            resultIn: resultIn
-        };
-    });
-    resultIn();
-    return r;
 }
 
 /**
@@ -251,16 +85,6 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
 function Unbind($el, ref, relation) {
     // TODO
 }
-
-/**
- * Default configurations.
- * @type {Object}
- */
-var DefaultConf = {
-    attrPrefix: 'm-',
-    domBoundFlag: '__dmd_bound',
-    refBeginsWithDollar: true
-};
 
 /**
  * Constructor.
