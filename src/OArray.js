@@ -2,15 +2,25 @@ import * as Util from './Util'
 
 var canUseProxy = typeof Proxy === 'function';
 
+function defineProperty(target, prop, desc) {
+    if (Object.defineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
+        }
+    }
+}
+
 var OArray = function (arr, option) {
     if (Util.isObject(arr) && arguments.length === 1) option = arr;
     if (!Util.isArray(arr)) arr = [];
 
-    Object.defineProperty(this, '__data', {
+    defineProperty(this, '__data', {
         value: arr
     });
 
-    Object.defineProperty(this, 'length', {
+    defineProperty(this, 'length', {
         get: function () {
             return arr.length;
         },
@@ -23,7 +33,7 @@ var OArray = function (arr, option) {
 
     var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
     eventNames.forEach(function (e) {
-        Object.defineProperty(_this, 'on' + e, { value: [] });
+        defineProperty(_this, 'on' + e, { value: [] });
     });
     eventNames.forEach(function (e) {
         _this.addEventListener(e, option['on' + e]);
@@ -65,20 +75,27 @@ OArray.prototype.dispatchEvent = function (eventName, args) {
 };
 OArray.prototype.trigger = OArray.prototype.dispatchEvent;
 
+OArray.prototype.get = function (i) {
+    return this.__data[i];
+};
+
+OArray.prototype.set = function (i, v) {
+    var e = this.__data[i];
+    if (Util.isBasic(e) || Util.isBasic(v)) {
+        this.dispatchEvent('set', e, v, i, this.__data);
+        this.__data[i] = v;
+    } else {
+        Util.extend(e, v, true);
+    }
+};
+
 OArray.prototype.assignElement = function (i) {
-    Object.defineProperty(this, i, {
+    defineProperty(this, i, {
         get: function () {
-            return this.__data[i];
+            return this.get(i);
         },
         set: function (val) {
-            var e = this.__data[i];
-            if (Util.isBasic(e) || Util.isBasic(val)) {
-                this.dispatchEvent('set', e, val, i, this.__data);
-                e = val;
-                this.__data[i] = e;
-            } else {
-                Util.extend(e, val, true);
-            }
+            this.set(i, val);
         },
         configurable: true,
         enumerable: true
@@ -115,7 +132,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
 
     var itemsToDelete = [];
     for (var i = startIndex; i < startIndex + howManyToDelete; i++) {
-        itemsToDelete.push(Util.clone(this[i]));
+        itemsToDelete.push(Util.clone(this.get(i)));
     }
 
     var itemsToInsert = Array.prototype.slice.call(arguments, 2);
@@ -123,7 +140,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
 
     var howManyToSet = Math.min(howManyToDelete, howManyToInsert);
     for (var j = startIndex; j < startIndex + howManyToSet; j++) {
-        this[j] = itemsToInsert[j - startIndex];
+        this.set(j, itemsToInsert[j - startIndex]);
     }
 
     if (howManyToDelete === howManyToInsert) return;
@@ -141,7 +158,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
 
 OArray.prototype.forEach = function (fn) {
     for (var i = 0; i < this.length; i++) {
-        var r = fn(this[i], i);
+        var r = fn(this.get(i), i);
         if (r === false) break;
     }
 };
@@ -151,7 +168,7 @@ OArray.prototype.forEach = function (fn) {
         var r = Util.clone(this.__data);
         Array.prototype[f].apply(r, arguments);
         for (var i = 0; i < this.length; i++) {
-            this[i] = r[i];
+            this.set(i, r[i]);
         }
     };
 });
