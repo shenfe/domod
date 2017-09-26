@@ -14,8 +14,8 @@
 <body>
     <form>
         <div>
-            <input type="radio" name="gender" value="male" m-checked="$form.gender === 'male' ? 'checked' : undefined">Male
-            <input type="radio" name="gender" value="female" m-checked="$form.gender === 'female' ? 'checked' : undefined">Female
+            <input m-onclick="DMD.$(this, 'form.gender', 'male')" type="radio" name="gender" value="male" m-checked="$form.gender === 'male' ? 'checked' : undefined">Male
+            <input m-onclick="DMD.$(this, 'form.gender', 'female')" type="radio" name="gender" value="female" m-checked="$form.gender === 'female' ? 'checked' : undefined">Female
         </div>
         <div>
             <input type="text" name="mobile" m-value="$form.mobile">
@@ -24,10 +24,7 @@
         </div>
         <div>
             <select name="age" m-value="$form.age.value">
-                <option value="1">0-18</option>
-                <option value="2">19-36</option>
-                <option value="3">37-54</option>
-                <option value="4">55-200</option>
+                <option m-each="(val, key) in $form.age.options" value="key">{{val}}</option>
             </select>
         </div>
     </form>
@@ -41,7 +38,7 @@
                 return /^1[3|4|5|8][0-9]\d{8}$/.test(this.form.mobile);
             },
             form: {
-                gender: 'male',
+                gender: 'female',
                 mobile: '15210001000',
                 age: {
                     value: '3',

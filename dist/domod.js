@@ -170,7 +170,7 @@ var definePropertyFeature = !!Object.defineProperty;
 var useDefineProperty = false && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
-    if (useDefineProperty) {
+    if (useDefineProperty && !isNode(target)) {
         Object.defineProperty(target, prop, desc);
     } else {
         if ('value' in desc) {
@@ -198,13 +198,9 @@ function register(root) {
     if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + gid();
-        if (!isNode(root)) {
-            defineProperty(root, '__kernel_root', {
-                value: id
-            });
-        } else {
-            root.__kernel_root = id;
-        }
+        defineProperty(root, '__kernel_root', {
+            value: id
+        });
         Store[id] = root;
     }
     return root.__kernel_root;
@@ -218,9 +214,8 @@ function formatStream(stream, root) {
             if (isString(a)) return register(root) + '.' + a;
             return null;
         });
-    } else {
-        return [];
     }
+    return [];
 }
 
 function propKernelOrder(proppath) {
@@ -466,6 +461,7 @@ function Data(root, refPath, value) {
  * @type {Object}
  */
 var conf$1 = {
+    attrPrefix: 'm-',
     refBeginsWithDollar: true,
     attrsFlag: 'attrs.'
 };
@@ -525,7 +521,7 @@ function replaceTmplInStrLiteral(str) {
  * @param {String} text 
  * @param {Object} ref 
  * @return {String}
- * @example ('My name is {{name}}.', { name: 'Tom' }) => 'My name is Tom.'
+ * @example ('My name is {{$name}}.', { name: 'Tom' }) => 'My name is Tom.'
  */
 function evaluateRawTextWithTmpl(text, ref) {
     var reg = /{{([^{}]*)}}/g;
@@ -558,7 +554,7 @@ function parseRefsInExpr(expr) {
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
  * @return {Array<String>}  [description]
- * @example 'My name is {{name}}. I\'m {{age}} years old.' => ['name', 'age']
+ * @example 'My name is {{$name}}. I\'m {{$age}} years old.' => ['$name', '$age']
  */
 function parseExprsInRawText(text) {
     var reg = /{{([^{}]*)}}/g;
@@ -645,7 +641,6 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
  * @type {Object}
  */
 var conf = {
-    attrPrefix: 'm-',
     domBoundFlag: '__dmd_bound'
 };
 
@@ -662,19 +657,21 @@ function Bind($el, ref) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
         var attrList = [];
         each($el.attributes, function (value, name) {
-            if (!name.startsWith(conf.attrPrefix)) return;
+            if (!name.startsWith(conf$1.attrPrefix)) return;
             attrList.push(name);
-            name = name.substr(conf.attrPrefix.length).toLowerCase();
+            name = name.substr(conf$1.attrPrefix.length).toLowerCase();
             switch (name) {
             case 'value':
                 addEvent($el, 'input', function (e) {
                     Data(ref, conf$1.refBeginsWithDollar ? value.substr(1) : value, this.value);
                 }, false);
-                Relate(ref, relationFromExprToRef(value, ref, $el, name));
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'value'));
                 break;
             case 'innertext':
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'innerText'));
+                break;
             case 'innerhtml':
-                Relate(ref, relationFromExprToRef(value, ref, $el, (name === 'innertext') ? 'innerText' : 'innerHTML'));
+                Relate(ref, relationFromExprToRef(value, ref, $el, 'innerHTML'));
                 break;
             case 'class':
                 Relate(ref, relationFromExprToRef(value, ref, $el, 'className'));
@@ -689,8 +686,8 @@ function Bind($el, ref) {
                 var eventName = isEventName(name);
                 if (eventName) { /* Event */
                     addEvent($el, eventName, function (e) {
-                        executeFunctionWithScope(value, ref, $el);
-                    }, false);
+                        executeFunctionWithScope(value, ref);
+                    }, true);
                 } else { /* Attribute */
                     Relate(ref, relationFromExprToRef(value, ref, $el, conf$1.attrsFlag + name));
                 }
@@ -714,7 +711,7 @@ function Bind($el, ref) {
 
 /**
  * Constructor.
- * @param {*}  
+ * @param {*} $el 
  * @param {*} ref 
  */
 var DMD = function ($el, ref) {

@@ -201,9 +201,10 @@ function defineProperty(target, prop, desc) {
     }
 }
 
-var OArray = function (arr, option) {
+function OArray(arr, option) {
     if (isObject(arr) && arguments.length === 1) option = arr;
     if (!isArray(arr)) arr = [];
+    if (!option) option = {};
 
     defineProperty(this, '__data', {
         value: arr
@@ -231,7 +232,7 @@ var OArray = function (arr, option) {
     each(arr, function (v, i) {
         _this.assignElement(i);
     });
-};
+}
 
 OArray.prototype = [];
 OArray.prototype.constructor = OArray;

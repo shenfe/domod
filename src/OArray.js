@@ -12,9 +12,10 @@ function defineProperty(target, prop, desc) {
     }
 }
 
-var OArray = function (arr, option) {
+function OArray(arr, option) {
     if (Util.isObject(arr) && arguments.length === 1) option = arr;
     if (!Util.isArray(arr)) arr = [];
+    if (!option) option = {};
 
     defineProperty(this, '__data', {
         value: arr
@@ -42,12 +43,19 @@ var OArray = function (arr, option) {
     Util.each(arr, function (v, i) {
         _this.assignElement(i);
     });
-};
+}
 
 OArray.prototype = [];
 OArray.prototype.constructor = OArray;
 
 OArray.prototype.addEventListener = function (eventName, handler) {
+    var _this = this;
+    if (Util.isObject(eventName)) {
+        Util.each(eventName, function (hdl, evt) {
+            _this.addEventListener(evt, hdl);
+        });
+        return;
+    }
     if (!this['on' + eventName] || !Util.isFunction(handler)) return;
     this['on' + eventName].push(handler);
 };
@@ -55,6 +63,12 @@ OArray.prototype.on = OArray.prototype.addEventListener;
 
 OArray.prototype.removeEventListener = function (eventName, handler) {
     var _this = this;
+    if (Util.isObject(eventName)) {
+        Util.each(eventName, function (hdl, evt) {
+            _this.removeEventListener(evt, hdl);
+        });
+        return;
+    }
     if (!this['on' + eventName] || !Util.isFunction(handler)) return;
     var handlers = this['on' + eventName];
     Util.each(handlers, function (h, i) {

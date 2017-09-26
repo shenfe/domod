@@ -1,11 +1,13 @@
 import * as Util from './Util'
 import { Data } from './Kernel'
+import OArray from './OArray'
 
 /**
  * Default configurations.
  * @type {Object}
  */
 var conf = {
+    attrPrefix: 'm-',
     refBeginsWithDollar: true,
     attrsFlag: 'attrs.'
 };
@@ -65,7 +67,7 @@ function replaceTmplInStrLiteral(str) {
  * @param {String} text 
  * @param {Object} ref 
  * @return {String}
- * @example ('My name is {{name}}.', { name: 'Tom' }) => 'My name is Tom.'
+ * @example ('My name is {{$name}}.', { name: 'Tom' }) => 'My name is Tom.'
  */
 function evaluateRawTextWithTmpl(text, ref) {
     var reg = /{{([^{}]*)}}/g;
@@ -97,16 +99,26 @@ function parseRefsInExpr(expr) {
 /**
  * Parse `each` template expression from an attribute value string.
  * @param {String} expr 
+ * @param {*} ref
  */
-function parseEachExpr(expr) {
+function parseEachExpr(expr, ref) {
     // TODO
+    var value = [];
+    if (!(value instanceof OArray)) {
+        // TODO
+    }
+    return {
+        proppath: '',
+        value: value,
+        iterator: ['val', 'key']
+    };
 }
 
 /**
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
  * @return {Array<String>}  [description]
- * @example 'My name is {{name}}. I\'m {{age}} years old.' => ['name', 'age']
+ * @example 'My name is {{$name}}. I\'m {{$age}} years old.' => ['$name', '$age']
  */
 function parseExprsInRawText(text) {
     var reg = /{{([^{}]*)}}/g;
