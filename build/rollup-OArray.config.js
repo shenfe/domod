@@ -1,11 +1,11 @@
 var uglify = require('rollup-plugin-uglify');
 
 module.exports = {
-    entry: 'src/ObservableArray.js',
+    entry: 'src/OArray.js',
     format: 'umd',
     moduleName: 'OArray',
     sourceMap: true,
-    dest: 'dist/ObservableArray.js',
+    dest: 'dist/OArray.js',
     plugins: [
         // uglify()
     ]
