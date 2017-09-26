@@ -14,7 +14,7 @@ var definePropertyFeature = !!Object.defineProperty;
 var useDefineProperty = false && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
-    if (useDefineProperty) {
+    if (useDefineProperty && !Util.isNode(target)) {
         Object.defineProperty(target, prop, desc);
     } else {
         if ('value' in desc) {
@@ -42,13 +42,9 @@ function register(root) {
     if (root === Store || (!Util.isObject(root) && !Util.isNode(root))) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + Util.gid();
-        if (!Util.isNode(root)) {
-            defineProperty(root, '__kernel_root', {
-                value: id
-            });
-        } else {
-            root.__kernel_root = id;
-        }
+        defineProperty(root, '__kernel_root', {
+            value: id
+        });
         Store[id] = root;
     }
     return root.__kernel_root;
@@ -62,9 +58,8 @@ function formatStream(stream, root) {
             if (Util.isString(a)) return register(root) + '.' + a;
             return null;
         });
-    } else {
-        return [];
     }
+    return [];
 }
 
 function propKernelOrder(proppath) {
