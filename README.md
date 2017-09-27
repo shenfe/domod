@@ -75,6 +75,16 @@ resultIn | Do when the property is being set.
 upstream | Other properties as the property's dependencies.
 dnstream | Other properties as the property's effects.
 
+## Standalone Libraries
+
+### Kernel
+
+See the [code](https://github.com/shenfe/domod/blob/master/src/Kernel.js) and [doc](https://github.com/shenfe/domod/blob/master/doc/Kernel.md) for more.
+
+### ObservableArray
+
+Also called OArray for short. See the [code](https://github.com/shenfe/domod/blob/master/src/OArray.js) and [doc](https://github.com/shenfe/domod/blob/master/doc/ObservableArray.md) for more.
+
 ## License
 
 MIT
