@@ -1,4 +1,3 @@
-// import './Polyfill'
 import * as Util from './Util'
 import { Kernel, Relate, Data } from './Kernel'
 import * as Parser from './Parser'
@@ -16,10 +15,12 @@ var conf = {
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} ref                 [description]
+ * @param  {Object} ext                 [description]
  * @return {[type]}                     [description]
  */
-function Bind($el, ref) {
+function Bind($el, ref, ext) {
     if (!Util.isNode($el) || !Util.isObject(ref)) return null;
+    ext = ext || {};
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
@@ -31,12 +32,12 @@ function Bind($el, ref) {
             $el.removeAttribute(eachAttrName);
             var $parent = $el.parentNode;
             $parent.removeChild($el);
-            Util.each(eachExpr.value, function (v, k) {
+            Util.each(eachExpr.target, function (v, k) {
                 var $copy = $el.cloneNode(true);
-                Bind($copy, ref);
+                Bind($copy, ref, ext);
                 $parent.appendChild($copy);
             });
-            eachExpr.value.on({
+            eachExpr.target.on({
                 push: function (v) {},
                 unshift: function (v) {},
                 pop: function () {},

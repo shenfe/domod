@@ -109,8 +109,11 @@ function parseEachExpr(expr, ref) {
     }
     return {
         proppath: '',
-        value: value,
-        iterator: ['val', 'key']
+        target: value,
+        iterator: {
+            value: '',
+            key: ''
+        }
     };
 }
 
