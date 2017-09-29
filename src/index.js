@@ -8,19 +8,27 @@ import OArray from './OArray'
  * @type {Object}
  */
 var conf = {
-    domBoundFlag: '__dmd_bound'
+    domBoundFlag: '__dmd_bound',
+    domListKey: '__dmd_key'
 };
+
+function pathContains(path, ref) {
+    Util.each(ref, function (p, k) {
+        if (path === k || path.startsWith(k + '.')) return k;
+    });
+    return null;
+}
 
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} ref                 [description]
- * @param  {Object} ext                 [description]
+ * @param  {Array} ext                  [description]
  * @return {[type]}                     [description]
  */
 function Bind($el, ref, ext) {
     if (!Util.isNode($el) || !Util.isObject(ref)) return null;
-    ext = ext || {};
+    ext = ext ? (Util.isArray(ext) ? ext : [ext]) : [];
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
@@ -32,18 +40,24 @@ function Bind($el, ref, ext) {
             $el.removeAttribute(eachAttrName);
             var $parent = $el.parentNode;
             $parent.removeChild($el);
-            Util.each(eachExpr.target, function (v, k) {
+
+            var $targetList = eachExpr.target;
+            Util.each($targetList, function (v, k) {
                 var $copy = $el.cloneNode(true);
-                Bind($copy, ref, ext);
+                var _ext = {};
+                _ext[eachExpr.iterator.val] = v;
+                _ext[eachExpr.iterator.key] = k;
+                Bind($copy, ref, [_ext].concat(ext));
                 $parent.appendChild($copy);
-            });
-            eachExpr.target.on({
-                push: function (v) {},
-                unshift: function (v) {},
-                pop: function () {},
-                shift: function () {},
-                splice: function (startIndex, howManyDeleted, itemInserted) {},
-                set: function (oval, nval, i, arr) {}
+
+                $targetList.on({
+                    push: function (v) {},
+                    unshift: function (v) {},
+                    pop: function () {},
+                    shift: function () {},
+                    splice: function (startIndex, howManyDeleted, itemInserted) {},
+                    set: function (oval, nval, i, arr) {}
+                });
             });
         }
 
@@ -86,7 +100,7 @@ function Bind($el, ref, ext) {
             $el.removeAttribute(name);
         });
         Util.each($el, function (node) {
-            Bind(node, ref);
+            Bind(node, ref, ext);
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var tmpl = $el.nodeValue;

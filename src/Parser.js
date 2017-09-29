@@ -108,10 +108,10 @@ function parseEachExpr(expr, ref) {
         // TODO
     }
     return {
-        proppath: '',
         target: value,
+        targetRef: '',
         iterator: {
-            value: '',
+            val: '',
             key: ''
         }
     };
