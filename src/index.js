@@ -28,11 +28,13 @@ function pathContains(path, ref) {
  */
 function Bind($el, ref, ext) {
     if (!Util.isNode($el) || !Util.isObject(ref)) return null;
-    ext = ext ? (Util.isArray(ext) ? ext : [ext]) : [];
+    ext = ext ? (Util.isArray(ext) ? ext : [ext]) : []; /* Ensure `ext` is an array */
+    var scopes = ext.concat(ref);
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
 
+        /* Bind a list */
         if ($el.hasAttribute(Parser.conf.attrPrefix + 'each')) {
             var eachAttrName = Parser.conf.attrPrefix + 'each';
             var eachExprText = $el.getAttribute(eachAttrName);
@@ -59,6 +61,14 @@ function Bind($el, ref, ext) {
                     set: function (oval, nval, i, arr) {}
                 });
             });
+            $targetList.on({
+                push: function (v) {},
+                unshift: function (v) {},
+                pop: function () {},
+                shift: function () {},
+                splice: function (startIndex, howManyDeleted, itemInserted) {},
+                set: function (oval, nval, i, arr) {}
+            });
         }
 
         var attrList = [];
@@ -66,39 +76,39 @@ function Bind($el, ref, ext) {
             if (!name.startsWith(Parser.conf.attrPrefix)) return;
             attrList.push(name);
             name = name.substr(Parser.conf.attrPrefix.length).toLowerCase();
-            switch (name) {
-            case 'value':
-                Util.addEvent($el, 'input', function (e) {
-                    Data(ref, Parser.conf.refBeginsWithDollar ? value.substr(1) : value, this.value);
-                }, false);
-                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'value'));
-                break;
-            case 'innertext':
-                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'innerText'));
-                break;
-            case 'innerhtml':
-                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'innerHTML'));
-                break;
-            case 'class':
-                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'className'));
-                break;
-            case 'style':
-                Relate(ref, Parser.relationFromExprToRef(value, ref, $el, 'style.cssText'));
-                break;
-            default:
-                var eventName = Util.isEventName(name);
-                if (eventName) { /* Event */
-                    Util.addEvent($el, eventName, function (e) {
-                        Parser.executeFunctionWithScope(value, ref);
-                    }, true);
-                } else { /* Attribute */
-                    Relate(ref, Parser.relationFromExprToRef(value, ref, $el, Parser.conf.attrsFlag + name));
-                }
+
+            var eventName = Util.isEventName(name);
+            if (eventName) { /* Event */
+                Util.addEvent($el, eventName, function (e) {
+                    Parser.executeFunctionWithScope(value, scopes);
+                }, true);
+                return;
             }
+
+            if (name === 'value') { /* Two-way binding */
+                var valueProp = Parser.conf.refBeginsWithDollar ? value.substr(1) : value;
+                var valueTarget = Util.seekTarget(valueProp, ext, ref);
+                Util.addEvent($el, 'input', function (e) {
+                    Data(valueTarget, valueProp, this.value);
+                }, false);
+            }
+
+            if (Parser.domProp[name]) name = Parser.domProp[name];
+            else name = Parser.conf.attrsFlag + name; /* Attribute */
+
+            /* Binding */
+            var allrel = Parser.relationFromExprToRef(value, scopes, $el, name);
+            allrel.forEach(function (a) {
+                Relate(a.target, a.relations);
+            });
         });
+
+        /* Clean attributes */
         Util.each(attrList, function (name) {
             $el.removeAttribute(name);
         });
+
+        /* Bind child nodes recursively */
         Util.each($el, function (node) {
             Bind(node, ref, ext);
         });
@@ -106,9 +116,14 @@ function Bind($el, ref, ext) {
         var tmpl = $el.nodeValue;
         var expr = Parser.parseExprsInRawText(tmpl).join(';');
         if (expr === '') return null;
-        Relate(ref, Parser.relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
-            return Parser.evaluateRawTextWithTmpl(tmpl, ref);
-        }));
+
+        /* Binding */
+        var allrel = Parser.relationFromExprToRef(expr, scopes, $el, 'nodeValue', function () {
+            return Parser.evaluateRawTextWithTmpl(tmpl, scopes);
+        });
+        allrel.forEach(function (a) {
+            Relate(a.target, a.relations);
+        });
     }
 
     return $el;

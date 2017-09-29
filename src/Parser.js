@@ -12,13 +12,36 @@ var conf = {
     attrsFlag: 'attrs.'
 };
 
+var domProp = {
+    'value': 'value',
+    'innertext': 'innerText',
+    'innerhtml': 'innerHTML',
+    'class': 'className',
+    'style': 'style.cssText'
+};
+
 /**
  * Execute a function with a data object as the scope.
  * @param {String} expr 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @param {*} target 
  */
-function executeFunctionWithScope(expr, ref, target) {
+function executeFunctionWithScope(expr, refs, target) {
+    if (Util.isArray(refs)) {
+        if (!target) target = refs[refs.length - 1];
+    } else {
+        refs = [refs];
+        if (!target) target = refs[0];
+    }
+    
+    var ref;
+    Util.each(refs, function (r) {
+        Util.each(r, function (v, p) {
+            if (p in ref) return;
+            ref[p] = v;
+        });
+    });
+
     var params = Object.keys(ref);
     if (conf.refBeginsWithDollar) {
         params = params.map(function (r) {
@@ -31,20 +54,20 @@ function executeFunctionWithScope(expr, ref, target) {
     //         args[i] = v.bind(ref);
     //     }
     // });
-    return (new Function(params.join(','), 'return (' + expr + ')')).apply(target || ref, args);
+    return (new Function(params.join(','), 'return (' + expr + ')')).apply(target, args);
 }
 
 /**
  * Evaluate an expression with a data object.
  * @param {String} expr 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @return {*}
  */
-function evaluateExpression(expr, ref) {
+function evaluateExpression(expr, refs) {
     expr = replaceTmplInStrLiteral(expr);
     var result = null;
     try {
-        result = executeFunctionWithScope(expr, ref);
+        result = executeFunctionWithScope(expr, refs);
     } catch (e) {}
     return result;
 }
@@ -65,14 +88,14 @@ function replaceTmplInStrLiteral(str) {
 /**
  * Evaluate a raw text with template expressions.
  * @param {String} text 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @return {String}
  * @example ('My name is {{$name}}.', { name: 'Tom' }) => 'My name is Tom.'
  */
-function evaluateRawTextWithTmpl(text, ref) {
+function evaluateRawTextWithTmpl(text, refs) {
     var reg = /{{([^{}]*)}}/g;
     var result = text.replace(reg, function (match, p1) {
-        return evaluateExpression(p1, ref);
+        return evaluateExpression(p1, refs);
     });
     return result;
 }
@@ -136,22 +159,35 @@ function parseExprsInRawText(text) {
 /**
  * Get relations from an expression string to the data, and apply in time as well.
  * @param {String}      expr 
- * @param {Object}      ref 
+ * @param {Array}       refs 
  * @param {Function}    resultFrom 
  * @return {Object}
  */
-function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
-    function getAllRefs(expr, ref) {
+function relationFromExprToRef(expr, refs, target, proppath, resultFrom) {
+    if (!Util.isArray(refs)) refs = [refs];
+
+    function getAllRefs(expr, refs) {
+        var refsInExpr = parseRefsInExpr(expr);
         var subData = {};
-        Util.each(parseRefsInExpr(expr), function (r) {
-            subData[r] = Data(ref, r);
+        Util.each(refsInExpr, function (r) {
+            var i = Util.seekTargetIndex(r, refs);
+            if (!subData[i]) subData[i] = {};
+            subData[i][r] = Data(t, r);
         });
-        return Util.allRefs(subData);
+        var re = [];
+        Util.each(subData, function (s, i) {
+            re.push({
+                target: refs[i],
+                refs: Util.allRefs(s)
+            });
+        });
+        return re;
     }
+
     var targetIsNode = Util.isNode(target);
     var resultIn = function () {
         var result = (resultFrom || function () {
-            return evaluateExpression(expr, ref);
+            return evaluateExpression(expr, refs);
         })();
 
         /* Transformation */
@@ -191,11 +227,19 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
             Data(target, proppath, result);
         }
     };
-    var r = {};
-    var ar = getAllRefs(expr, ref);
-    ar.forEach(function (ref) {
-        r[ref] = {
-            resultIn: resultIn
+
+    var r = getAllRefs(expr, refs).map(function (a) {
+        return {
+            target: a.target,
+            relations: (function () {
+                var r = {};
+                a.refs.forEach(function (refpath) {
+                    r[refpath] = {
+                        resultIn: resultIn
+                    };
+                });
+                return r;
+            })()
         };
     });
     resultIn();
@@ -204,6 +248,7 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
 
 export {
     conf,
+    domProp,
     relationFromExprToRef,
     executeFunctionWithScope,
     parseExprsInRawText,

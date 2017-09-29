@@ -273,6 +273,40 @@ var allRefs = function (obj) {
     return refs;
 };
 
+var hasRef = function (root, refPath) {
+    var v = root;
+    var paths = refPath.split('.');
+    while (paths.length) {
+        var p = paths.shift();
+        if (!hasProperty(v, p)) return false;
+        v = v[p];
+    }
+    return true;
+};
+
+var seekTarget = function (refPath, root) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    args.forEach(function (v) {
+        if (isArray(v)) {
+            var r = seekTarget(refPath, v);
+            if (r) return r;
+        } else {
+            if (hasRef(v, refPath)) return v;
+        }
+    });
+};
+
+var seekTargetIndex = function (refPath, roots) {
+    var index = roots.length - 1;
+    Util.each(roots, function (v, i) {
+        if (hasRef(v, refPath)) {
+            index = i;
+            return false;
+        }
+    });
+    return index;
+};
+
 var refData = function (root, refPath, value) {
     var toSet = arguments.length >= 3;
     var v = root;
@@ -354,6 +388,9 @@ export {
     touchLeaves,
     extend,
     allRefs,
+    hasRef,
+    seekTarget,
+    seekTargetIndex,
     refData,
     addEvent,
     flatten
