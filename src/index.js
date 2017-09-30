@@ -19,6 +19,11 @@ function pathContains(path, ref) {
     return null;
 }
 
+var domValueToBind = {
+    'input': true,
+    'select': true
+};
+
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
@@ -43,9 +48,6 @@ function Bind($el, ref, ext) {
             var $parent = $el.parentNode;
             $parent.removeChild($el);
 
-            if (Util.isInstance(eachExpr.target, Array)) {
-                eachExpr.target = new OArray(eachExpr.target);
-            }
             var $targetList = eachExpr.target;
             Util.each($targetList, function (v, k) {
                 var $copy = $el.cloneNode(true);
@@ -73,6 +75,11 @@ function Bind($el, ref, ext) {
                 set: function (oval, nval, i, arr) {}
             });
         }
+        
+        /* Bind child nodes recursively */
+        Util.each($el, function (node) {
+            Bind(node, ref, ext);
+        });
 
         var attrList = [];
         Util.each($el.attributes, function (value, name) {
@@ -83,12 +90,14 @@ function Bind($el, ref, ext) {
             var eventName = Util.isEventName(name);
             if (eventName) { /* Event */
                 Util.addEvent($el, eventName, function (e) {
-                    Parser.executeFunctionWithScope(value, scopes);
+                    Parser.executeFunctionWithScope(value, [{
+                        e: e
+                    }].concat(scopes));
                 }, true);
                 return;
             }
 
-            if ($el.nodeName.toLowerCase() === 'input' && name === 'value') { /* Two-way binding */
+            if (domValueToBind[$el.nodeName.toLowerCase()] && name === 'value') { /* Two-way binding */
                 var valueProp = Parser.conf.refBeginsWithDollar ? value.substr(1) : value;
                 var valueTarget = Util.seekTarget(valueProp, ext, ref);
                 Util.addEvent($el, 'input', function (e) {
@@ -110,18 +119,20 @@ function Bind($el, ref, ext) {
         Util.each(attrList, function (name) {
             $el.removeAttribute(name);
         });
-
-        /* Bind child nodes recursively */
-        Util.each($el, function (node) {
-            Bind(node, ref, ext);
-        });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var tmpl = $el.nodeValue;
         var expr = Parser.parseExprsInRawText(tmpl).join(';');
         if (expr === '') return null;
 
         /* Binding */
-        var allrel = Parser.relationFromExprToRef(expr, scopes, $el, 'nodeValue', function () {
+        var allrel;
+        var $targetEl = $el;
+        var targetRef = 'nodeValue';
+        if ($el.parentNode.nodeName.toLowerCase() === 'textarea') {
+            $targetEl = $el.parentNode;
+            targetRef = 'value';
+        }
+        allrel = Parser.relationFromExprToRef(expr, scopes, $targetEl, targetRef, function () {
             return Parser.evaluateRawTextWithTmpl(tmpl, scopes);
         });
         allrel.forEach(function (a) {

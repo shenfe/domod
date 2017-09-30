@@ -45,10 +45,6 @@ var isBasic = function (v) {
         || typeof v === 'function';
 };
 
-var isInstance = function (v, creator) {
-    return typeof creator === 'function' && v instanceof creator;
-};
-
 var isNode = function (v) {
     if (typeof Node !== 'function') return false;
     return v instanceof Node;
@@ -66,7 +62,9 @@ var isEventName = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v)) {
+    if (isObject(v) && isFunction(v.forEach)) {
+        v.forEach(func);
+    } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
@@ -105,8 +103,6 @@ var each = function (v, func, arrayReverse) {
         for (i = 0, len = v.length; i < len; i++) {
             if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
-    } else if (v && isFunction(v.forEach)) {
-        v.forEach(func);
     }
 };
 
@@ -173,20 +169,20 @@ var shrinkArray = function (arr, len) {
 };
 
 var extend = function (dest, srcs, clean) {
-    if (!isObject(dest)) return null;
+    if (!isObject(dest)) return srcs;
     var args = Array.prototype.slice.call(arguments, 1,
         arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
     clean = arguments[arguments.length - 1] === true;
 
     function extendObj(obj, src, clean) {
-        if (!isObject(src)) return;
+        if (!isObject(src)) return src;
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
                 if (obj[p] !== v) {
                     obj[p] = clone(v);
                 }
             } else {
-                extendObj(obj[p], v, clean);
+                obj[p] = extendObj(obj[p], v, clean);
             }
         });
         if (clean) {
@@ -199,10 +195,11 @@ var extend = function (dest, srcs, clean) {
                 shrinkArray(obj);
             }
         }
+        return obj;
     }
 
     each(args, function (src) {
-        extendObj(dest, src, clean);
+        dest = extendObj(dest, src, clean);
     });
     return dest;
 };
@@ -298,7 +295,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = false && definePropertyFeature;
+var useDefineProperty = true && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty && !isNode(target)) {
@@ -437,17 +434,20 @@ function Kernel(root, path, relations) {
             },
             set: function (val, target, property) {
                 if (val === value) return;
-                value = val;
+                // value = val;
                 if (!useDefineProperty) {
-                    if (property !== undefined) {
-                        target[property] = val;
-                    } else {
+                    if (property === undefined) {
                         obj = scopeOf(proppath);
-                        obj.target[obj.property] = val;
+                        target = obj.target;
+                        property = obj.property;
                     }
+                    target[property] = extend(target[property], val); // TODO
+                    value = target[property];
+                } else {
+                    value = extend(value, val);
                 }
                 ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [value]);
                 });
                 if (Dnstreams[proppath]) {
                     each(Dnstreams[proppath], function (kmap, ds) {
@@ -574,8 +574,9 @@ function Data(root, refPath, value) {
         if (toSet && paths.length === 0) { /* set */
             if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
                 GetterSetter[proppath].set(value, v, p);
+            } else {
+                v[p] = extend(v[p], value); // TODO
             }
-            v[p] = value;
         } else { /* get */
             if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
                 v = GetterSetter[proppath].get(v, p);
@@ -791,6 +792,7 @@ var conf$1 = {
 
 var domProp = {
     'value': 'value',
+    'checked': 'checked',
     'innertext': 'innerText',
     'innerhtml': 'innerHTML',
     'class': 'className',
@@ -1070,6 +1072,11 @@ var conf = {
     domListKey: '__dmd_key'
 };
 
+var domValueToBind = {
+    'input': true,
+    'select': true
+};
+
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
@@ -1094,9 +1101,6 @@ function Bind($el, ref, ext) {
             var $parent = $el.parentNode;
             $parent.removeChild($el);
 
-            if (isInstance(eachExpr.target, Array)) {
-                eachExpr.target = new OArray(eachExpr.target);
-            }
             var $targetList = eachExpr.target;
             each($targetList, function (v, k) {
                 var $copy = $el.cloneNode(true);
@@ -1124,6 +1128,11 @@ function Bind($el, ref, ext) {
                 set: function (oval, nval, i, arr) {}
             });
         }
+        
+        /* Bind child nodes recursively */
+        each($el, function (node) {
+            Bind(node, ref, ext);
+        });
 
         var attrList = [];
         each($el.attributes, function (value, name) {
@@ -1134,12 +1143,14 @@ function Bind($el, ref, ext) {
             var eventName = isEventName(name);
             if (eventName) { /* Event */
                 addEvent($el, eventName, function (e) {
-                    executeFunctionWithScope(value, scopes);
+                    executeFunctionWithScope(value, [{
+                        e: e
+                    }].concat(scopes));
                 }, true);
                 return;
             }
 
-            if ($el.nodeName.toLowerCase() === 'input' && name === 'value') { /* Two-way binding */
+            if (domValueToBind[$el.nodeName.toLowerCase()] && name === 'value') { /* Two-way binding */
                 var valueProp = conf$1.refBeginsWithDollar ? value.substr(1) : value;
                 var valueTarget = seekTarget(valueProp, ext, ref);
                 addEvent($el, 'input', function (e) {
@@ -1161,18 +1172,20 @@ function Bind($el, ref, ext) {
         each(attrList, function (name) {
             $el.removeAttribute(name);
         });
-
-        /* Bind child nodes recursively */
-        each($el, function (node) {
-            Bind(node, ref, ext);
-        });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var tmpl = $el.nodeValue;
         var expr = parseExprsInRawText(tmpl).join(';');
         if (expr === '') return null;
 
         /* Binding */
-        var allrel = relationFromExprToRef(expr, scopes, $el, 'nodeValue', function () {
+        var allrel;
+        var $targetEl = $el;
+        var targetRef = 'nodeValue';
+        if ($el.parentNode.nodeName.toLowerCase() === 'textarea') {
+            $targetEl = $el.parentNode;
+            targetRef = 'value';
+        }
+        allrel = relationFromExprToRef(expr, scopes, $targetEl, targetRef, function () {
             return evaluateRawTextWithTmpl(tmpl, scopes);
         });
         allrel.forEach(function (a) {

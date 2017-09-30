@@ -11,7 +11,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = false && definePropertyFeature;
+var useDefineProperty = true && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty && !Util.isNode(target)) {
@@ -150,17 +150,20 @@ function Kernel(root, path, relations) {
             },
             set: function (val, target, property) {
                 if (val === value) return;
-                value = val;
+                // value = val;
                 if (!useDefineProperty) {
-                    if (property !== undefined) {
-                        target[property] = val;
-                    } else {
+                    if (property === undefined) {
                         obj = scopeOf(proppath);
-                        obj.target[obj.property] = val;
+                        target = obj.target;
+                        property = obj.property;
                     }
+                    target[property] = Util.extend(target[property], val); // TODO
+                    value = target[property];
+                } else {
+                    value = Util.extend(value, val);
                 }
                 ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [value]);
                 });
                 if (Dnstreams[proppath]) {
                     Util.each(Dnstreams[proppath], function (kmap, ds) {
@@ -287,8 +290,9 @@ function Data(root, refPath, value) {
         if (toSet && paths.length === 0) { /* set */
             if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
                 GetterSetter[proppath].set(value, v, p);
+            } else {
+                v[p] = Util.extend(v[p], value); // TODO
             }
-            v[p] = value;
         } else { /* get */
             if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
                 v = GetterSetter[proppath].get(v, p);

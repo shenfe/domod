@@ -73,7 +73,9 @@ var isCSSSelector = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v)) {
+    if (isObject(v) && isFunction(v.forEach)) {
+        v.forEach(func);
+    } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
@@ -112,8 +114,6 @@ var each = function (v, func, arrayReverse) {
         for (i = 0, len = v.length; i < len; i++) {
             if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
-    } else if (v && isFunction(v.forEach)) {
-        v.forEach(func);
     }
 };
 
@@ -224,20 +224,20 @@ var touchLeaves = function (obj) {
 };
 
 var extend = function (dest, srcs, clean) {
-    if (!isObject(dest)) return null;
+    if (!isObject(dest)) return srcs;
     var args = Array.prototype.slice.call(arguments, 1,
         arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
     clean = arguments[arguments.length - 1] === true;
 
     function extendObj(obj, src, clean) {
-        if (!isObject(src)) return;
+        if (!isObject(src)) return src;
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
                 if (obj[p] !== v) {
                     obj[p] = clone(v);
                 }
             } else {
-                extendObj(obj[p], v, clean);
+                obj[p] = extendObj(obj[p], v, clean);
             }
         });
         if (clean) {
@@ -250,10 +250,11 @@ var extend = function (dest, srcs, clean) {
                 shrinkArray(obj);
             }
         }
+        return obj;
     }
 
     each(args, function (src) {
-        extendObj(dest, src, clean);
+        dest = extendObj(dest, src, clean);
     });
     return dest;
 };

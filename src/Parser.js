@@ -14,6 +14,7 @@ var conf = {
 
 var domProp = {
     'value': 'value',
+    'checked': 'checked',
     'innertext': 'innerText',
     'innerhtml': 'innerHTML',
     'class': 'className',
