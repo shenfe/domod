@@ -38,11 +38,14 @@ function Bind($el, ref, ext) {
         if ($el.hasAttribute(Parser.conf.attrPrefix + 'each')) {
             var eachAttrName = Parser.conf.attrPrefix + 'each';
             var eachExprText = $el.getAttribute(eachAttrName);
-            var eachExpr = parseEachExpr(eachExprText, ref);
+            var eachExpr = Parser.parseEachExpr(eachExprText, ref);
             $el.removeAttribute(eachAttrName);
             var $parent = $el.parentNode;
             $parent.removeChild($el);
 
+            if (Util.isInstance(eachExpr.target, Array)) {
+                eachExpr.target = new OArray(eachExpr.target);
+            }
             var $targetList = eachExpr.target;
             Util.each($targetList, function (v, k) {
                 var $copy = $el.cloneNode(true);
@@ -85,7 +88,7 @@ function Bind($el, ref, ext) {
                 return;
             }
 
-            if (name === 'value') { /* Two-way binding */
+            if ($el.nodeName.toLowerCase() === 'input' && name === 'value') { /* Two-way binding */
                 var valueProp = Parser.conf.refBeginsWithDollar ? value.substr(1) : value;
                 var valueTarget = Util.seekTarget(valueProp, ext, ref);
                 Util.addEvent($el, 'input', function (e) {

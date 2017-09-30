@@ -286,19 +286,21 @@ var hasRef = function (root, refPath) {
 
 var seekTarget = function (refPath, root) {
     var args = Array.prototype.slice.call(arguments, 1);
-    args.forEach(function (v) {
+    var v;
+    for (var i = 0, len = args.length; i < len; i++) {
+        v = args[i];
         if (isArray(v)) {
-            var r = seekTarget(refPath, v);
+            var r = seekTarget.apply(null, [refPath].concat(v));
             if (r) return r;
         } else {
             if (hasRef(v, refPath)) return v;
         }
-    });
+    }
 };
 
 var seekTargetIndex = function (refPath, roots) {
     var index = roots.length - 1;
-    Util.each(roots, function (v, i) {
+    each(roots, function (v, i) {
         if (hasRef(v, refPath)) {
             index = i;
             return false;

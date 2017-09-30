@@ -11,6 +11,10 @@ var gid = (function () {
     };
 })();
 
+var isNumber = function (v) {
+    return typeof v === 'number';
+};
+
 var isNumeric = function (v) {
     var n = parseInt(v);
     if (isNaN(n)) return false;
@@ -39,6 +43,10 @@ var isBasic = function (v) {
         || typeof v === 'number'
         || typeof v === 'string'
         || typeof v === 'function';
+};
+
+var isInstance = function (v, creator) {
+    return typeof creator === 'function' && v instanceof creator;
 };
 
 var isNode = function (v) {
@@ -102,6 +110,22 @@ var each = function (v, func, arrayReverse) {
     }
 };
 
+var clone = function (val) {
+    var r = val;
+    if (isObject(val)) {
+        r = {};
+        each(val, function (v, p) {
+            r[p] = clone(v);
+        });
+    } else if (isArray(val)) {
+        r = [];
+        each(val, function (v) {
+            r.push(clone(v));
+        });
+    }
+    return r;
+};
+
 var hasProperty = function (val, p) {
     if (isObject(val)) {
         return val.hasOwnProperty(p);
@@ -110,6 +134,77 @@ var hasProperty = function (val, p) {
         return isNumeric(p) && val.length > n && n >= 0;
     }
     return false;
+};
+
+var clear = function (val, p, withBasicVal) {
+    var inRef = isString(p) || isNumber(p);
+    var target = inRef ? val[p] : val;
+
+    if (isObject(target) || isArray(target)) {
+        each(target, function (v, p) {
+            clear(target, p);
+        });
+        if (isArray(target)) {
+            shrinkArray(target);
+        }
+    }
+
+    if (inRef) {
+        val[p] = withBasicVal;
+    }
+};
+
+var shrinkArray = function (arr, len) {
+    var limited = isNumber(len);
+    if (!limited) {
+        each(arr, function (v, i) {
+            if (v === undefined) arr.length--;
+        }, true);
+    } else {
+        each(arr, function (v, i) {
+            if (i >= len) arr.length--;
+            else return false;
+        }, true);
+        while (arr.length < len) {
+            arr.push(null);
+        }
+    }
+    return arr;
+};
+
+var extend = function (dest, srcs, clean) {
+    if (!isObject(dest)) return null;
+    var args = Array.prototype.slice.call(arguments, 1,
+        arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
+    clean = arguments[arguments.length - 1] === true;
+
+    function extendObj(obj, src, clean) {
+        if (!isObject(src)) return;
+        each(src, function (v, p) {
+            if (!hasProperty(obj, p) || isBasic(v)) {
+                if (obj[p] !== v) {
+                    obj[p] = clone(v);
+                }
+            } else {
+                extendObj(obj[p], v, clean);
+            }
+        });
+        if (clean) {
+            each(obj, function (v, p) {
+                if (!hasProperty(src, p)) {
+                    clear(obj, p);
+                }
+            });
+            if (isArray(obj)) {
+                shrinkArray(obj);
+            }
+        }
+    }
+
+    each(args, function (src) {
+        extendObj(dest, src, clean);
+    });
+    return dest;
 };
 
 var allRefs = function (obj) {
@@ -125,6 +220,42 @@ var allRefs = function (obj) {
         }
     });
     return refs;
+};
+
+var hasRef = function (root, refPath) {
+    var v = root;
+    var paths = refPath.split('.');
+    while (paths.length) {
+        var p = paths.shift();
+        if (!hasProperty(v, p)) return false;
+        v = v[p];
+    }
+    return true;
+};
+
+var seekTarget = function (refPath, root) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var v;
+    for (var i = 0, len = args.length; i < len; i++) {
+        v = args[i];
+        if (isArray(v)) {
+            var r = seekTarget.apply(null, [refPath].concat(v));
+            if (r) return r;
+        } else {
+            if (hasRef(v, refPath)) return v;
+        }
+    }
+};
+
+var seekTargetIndex = function (refPath, roots) {
+    var index = roots.length - 1;
+    each(roots, function (v, i) {
+        if (hasRef(v, refPath)) {
+            index = i;
+            return false;
+        }
+    });
+    return index;
 };
 
 function addEvent($el, eventName, handler, useCapture) {
@@ -456,6 +587,198 @@ function Data(root, refPath, value) {
     return toSet ? value : v;
 }
 
+function defineProperty$1(target, prop, desc) {
+    if (Object.defineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
+        }
+    }
+}
+
+function OArray(arr, option) {
+    if (isObject(arr) && arguments.length === 1) option = arr;
+    if (!isArray(arr)) arr = [];
+    if (!option) option = {};
+
+    defineProperty$1(this, '__data', {
+        value: arr
+    });
+
+    defineProperty$1(this, 'length', {
+        get: function () {
+            return arr.length;
+        },
+        set: function (v) {
+            arr.length = v;
+        }
+    });
+
+    var _this = this;
+
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    eventNames.forEach(function (e) {
+        defineProperty$1(_this, 'on' + e, { value: [] });
+    });
+    eventNames.forEach(function (e) {
+        _this.addEventListener(e, option['on' + e]);
+    });
+
+    each(arr, function (v, i) {
+        _this.assignElement(i);
+    });
+}
+
+OArray.prototype = [];
+OArray.prototype.constructor = OArray;
+
+OArray.prototype.addEventListener = function (eventName, handler) {
+    var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.addEventListener(evt, hdl);
+        });
+        return;
+    }
+    if (!this['on' + eventName] || !isFunction(handler)) return;
+    this['on' + eventName].push(handler);
+};
+OArray.prototype.on = OArray.prototype.addEventListener;
+
+OArray.prototype.removeEventListener = function (eventName, handler) {
+    var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.removeEventListener(evt, hdl);
+        });
+        return;
+    }
+    if (!this['on' + eventName] || !isFunction(handler)) return;
+    var handlers = this['on' + eventName];
+    each(handlers, function (h, i) {
+        if (h === handler) {
+            handlers.splice(i, 1);
+            return false;
+        }
+    });
+};
+OArray.prototype.off = OArray.prototype.removeEventListener;
+
+OArray.prototype.dispatchEvent = function (eventName, args) {
+    args = Array.prototype.slice.call(arguments, 1);
+    var _this = this;
+    each(this['on' + eventName], function (handler) {
+        handler.apply(_this, args);
+    });
+};
+OArray.prototype.trigger = OArray.prototype.dispatchEvent;
+
+OArray.prototype.get = function (i) {
+    return this.__data[i];
+};
+
+OArray.prototype.set = function (i, v) {
+    var e = this.__data[i];
+    if (isBasic(e) || isBasic(v)) {
+        this.dispatchEvent('set', e, v, i, this.__data);
+        this.__data[i] = v;
+    } else {
+        extend(e, v, true);
+    }
+};
+
+OArray.prototype.assignElement = function (i) {
+    defineProperty$1(this, i, {
+        get: function () {
+            return this.get(i);
+        },
+        set: function (val) {
+            this.set(i, val);
+        },
+        configurable: true,
+        enumerable: true
+    });
+};
+OArray.prototype.deleteElement = function () {
+    if (this.hasOwnProperty(this.length - 1)) delete this[this.length - 1];
+};
+
+['push', 'unshift'].forEach(function (f) {
+    OArray.prototype[f] = function (v) {
+        this.__data[f](v);
+        this.assignElement(this.length - 1);
+        this.dispatchEvent(f, v);
+    };
+});
+['pop', 'shift'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
+        this.deleteElement();
+        this.__data[f]();
+    };
+});
+
+OArray.prototype.toArray = function (notClone) {
+    return notClone ? this.__data : clone(this.__data);
+};
+
+OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
+    if (!isNumber(startIndex) || startIndex < 0) startIndex = 0;
+    if (startIndex >= this.length) startIndex = this.length;
+    if (!isNumber(howManyToDelete) || howManyToDelete < 0) howManyToDelete = 0;
+    if (howManyToDelete + startIndex > this.length) howManyToDelete = this.length - startIndex;
+
+    var itemsToDelete = [];
+    for (var i = startIndex; i < startIndex + howManyToDelete; i++) {
+        itemsToDelete.push(clone(this.get(i)));
+    }
+
+    var itemsToInsert = Array.prototype.slice.call(arguments, 2);
+    var howManyToInsert = itemsToInsert.length;
+
+    var howManyToSet = Math.min(howManyToDelete, howManyToInsert);
+    for (var j = startIndex; j < startIndex + howManyToSet; j++) {
+        this.set(j, itemsToInsert[j - startIndex]);
+    }
+
+    if (howManyToDelete === howManyToInsert) return;
+
+    var args;
+    if (howManyToDelete > howManyToInsert) {
+        args = [startIndex + howManyToInsert, howManyToDelete - howManyToInsert];
+        Array.prototype.splice.apply(this.__data, args);
+    } else {
+        args = [startIndex + howManyToDelete, 0].concat(itemsToInsert.slice(howManyToDelete));
+        Array.prototype.splice.apply(this.__data, args);
+    }
+    this.dispatchEvent.apply(this, ['splice'].concat(args));
+};
+
+OArray.prototype.forEach = function (fn) {
+    for (var i = 0; i < this.length; i++) {
+        var r = fn(this.get(i), i);
+        if (r === false) break;
+    }
+};
+
+['reverse', 'sort'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        var r = clone(this.__data);
+        Array.prototype[f].apply(r, arguments);
+        for (var i = 0; i < this.length; i++) {
+            this.set(i, r[i]);
+        }
+    };
+});
+
+['slice', 'concat', 'filter', 'map', 'reduce',
+    'indexOf', 'find', 'findIndex', 'fill', 'join'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        return Array.prototype[f].apply(this.toArray(), arguments);
+    };
+});
+
 /**
  * Default configurations.
  * @type {Object}
@@ -466,13 +789,36 @@ var conf$1 = {
     attrsFlag: 'attrs.'
 };
 
+var domProp = {
+    'value': 'value',
+    'innertext': 'innerText',
+    'innerhtml': 'innerHTML',
+    'class': 'className',
+    'style': 'style.cssText'
+};
+
 /**
  * Execute a function with a data object as the scope.
  * @param {String} expr 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @param {*} target 
  */
-function executeFunctionWithScope(expr, ref, target) {
+function executeFunctionWithScope(expr, refs, target) {
+    if (isArray(refs)) {
+        if (!target) target = refs[refs.length - 1];
+    } else {
+        refs = [refs];
+        if (!target) target = refs[0];
+    }
+    
+    var ref = {};
+    each(refs, function (r) {
+        each(r, function (v, p) {
+            if (p in ref) return;
+            ref[p] = v;
+        });
+    });
+
     var params = Object.keys(ref);
     if (conf$1.refBeginsWithDollar) {
         params = params.map(function (r) {
@@ -485,20 +831,20 @@ function executeFunctionWithScope(expr, ref, target) {
     //         args[i] = v.bind(ref);
     //     }
     // });
-    return (new Function(params.join(','), 'return (' + expr + ')')).apply(target || ref, args);
+    return (new Function(params.join(','), 'return (' + expr + ')')).apply(target, args);
 }
 
 /**
  * Evaluate an expression with a data object.
  * @param {String} expr 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @return {*}
  */
-function evaluateExpression(expr, ref) {
+function evaluateExpression(expr, refs) {
     expr = replaceTmplInStrLiteral(expr);
     var result = null;
     try {
-        result = executeFunctionWithScope(expr, ref);
+        result = executeFunctionWithScope(expr, refs);
     } catch (e) {}
     return result;
 }
@@ -519,14 +865,14 @@ function replaceTmplInStrLiteral(str) {
 /**
  * Evaluate a raw text with template expressions.
  * @param {String} text 
- * @param {Object} ref 
+ * @param {Array} refs 
  * @return {String}
  * @example ('My name is {{$name}}.', { name: 'Tom' }) => 'My name is Tom.'
  */
-function evaluateRawTextWithTmpl(text, ref) {
+function evaluateRawTextWithTmpl(text, refs) {
     var reg = /{{([^{}]*)}}/g;
     var result = text.replace(reg, function (match, p1) {
-        return evaluateExpression(p1, ref);
+        return evaluateExpression(p1, refs);
     });
     return result;
 }
@@ -551,6 +897,65 @@ function parseRefsInExpr(expr) {
 }
 
 /**
+ * Regular expressions.
+ */
+var Regs = {
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+};
+
+/**
+ * Parse `each` template expression from an attribute value string.
+ * @param {String} expr 
+ * @param {Array} refs
+ */
+function parseEachExpr(expr, refs) {
+    var valStr;
+    var keyStr;
+    var targetStr;
+    var r;
+    if (conf$1.refBeginsWithDollar) {
+        r = Regs.each12.exec(expr);
+        if (r) {
+            valStr = r[1].substr(1);
+            keyStr = r[3].substr(1);
+            targetStr = r[5].substr(1);
+        } else {
+            r = Regs.each11.exec(expr);
+            valStr = r[1].substr(1);
+            targetStr = r[3].substr(1);
+        }
+    } else {
+        r = Regs.each22.exec(expr);
+        if (r) {
+            valStr = r[1];
+            keyStr = r[3];
+            targetStr = r[5];
+        } else {
+            r = Regs.each21.exec(expr);
+            valStr = r[1];
+            targetStr = r[3];
+        }
+    }
+    var root = seekTarget(targetStr, refs);
+    var value = Data(root, targetStr);
+    if (!(value instanceof OArray)) {
+        value = new OArray(value);
+        Data(root, targetStr, value);
+    }
+    return {
+        target: value,
+        targetRef: targetStr,
+        iterator: {
+            val: valStr,
+            key: keyStr
+        }
+    };
+}
+
+/**
  * Parse template expression strings from a raw text such as a text node value.
  * @param {String} text     [description]
  * @return {Array<String>}  [description]
@@ -569,22 +974,35 @@ function parseExprsInRawText(text) {
 /**
  * Get relations from an expression string to the data, and apply in time as well.
  * @param {String}      expr 
- * @param {Object}      ref 
+ * @param {Array}       refs 
  * @param {Function}    resultFrom 
  * @return {Object}
  */
-function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
-    function getAllRefs(expr, ref) {
+function relationFromExprToRef(expr, refs, target, proppath, resultFrom) {
+    if (!isArray(refs)) refs = [refs];
+
+    function getAllRefs(expr, refs) {
+        var refsInExpr = parseRefsInExpr(expr);
         var subData = {};
-        each(parseRefsInExpr(expr), function (r) {
-            subData[r] = Data(ref, r);
+        each(refsInExpr, function (r) {
+            var i = seekTargetIndex(r, refs);
+            if (!subData[i]) subData[i] = {};
+            subData[i][r] = Data(refs[i], r);
         });
-        return allRefs(subData);
+        var re = [];
+        each(subData, function (s, i) {
+            re.push({
+                target: refs[i],
+                refs: allRefs(s)
+            });
+        });
+        return re;
     }
+
     var targetIsNode = isNode(target);
     var resultIn = function () {
         var result = (resultFrom || function () {
-            return evaluateExpression(expr, ref);
+            return evaluateExpression(expr, refs);
         })();
 
         /* Transformation */
@@ -624,89 +1042,145 @@ function relationFromExprToRef(expr, ref, target, proppath, resultFrom) {
             Data(target, proppath, result);
         }
     };
-    var r = {};
-    var ar = getAllRefs(expr, ref);
-    ar.forEach(function (ref) {
-        r[ref] = {
-            resultIn: resultIn
+
+    var r = getAllRefs(expr, refs).map(function (a) {
+        return {
+            target: a.target,
+            relations: (function () {
+                var r = {};
+                a.refs.forEach(function (refpath) {
+                    r[refpath] = {
+                        resultIn: resultIn
+                    };
+                });
+                return r;
+            })()
         };
     });
     resultIn();
     return r;
 }
 
-// import './Polyfill'
 /**
  * Default configurations.
  * @type {Object}
  */
 var conf = {
-    domBoundFlag: '__dmd_bound'
+    domBoundFlag: '__dmd_bound',
+    domListKey: '__dmd_key'
 };
 
 /**
  * Bind data to DOM.
  * @param  {HTMLElement} $el            [description]
  * @param  {Object} ref                 [description]
+ * @param  {Array} ext                  [description]
  * @return {[type]}                     [description]
  */
-function Bind($el, ref) {
-    if (!isNode($el) || !isObject(ref)) return;
+function Bind($el, ref, ext) {
+    if (!isNode($el) || !isObject(ref)) return null;
+    ext = ext ? (isArray(ext) ? ext : [ext]) : []; /* Ensure `ext` is an array */
+    var scopes = ext.concat(ref);
 
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
+
+        /* Bind a list */
+        if ($el.hasAttribute(conf$1.attrPrefix + 'each')) {
+            var eachAttrName = conf$1.attrPrefix + 'each';
+            var eachExprText = $el.getAttribute(eachAttrName);
+            var eachExpr = parseEachExpr(eachExprText, ref);
+            $el.removeAttribute(eachAttrName);
+            var $parent = $el.parentNode;
+            $parent.removeChild($el);
+
+            if (isInstance(eachExpr.target, Array)) {
+                eachExpr.target = new OArray(eachExpr.target);
+            }
+            var $targetList = eachExpr.target;
+            each($targetList, function (v, k) {
+                var $copy = $el.cloneNode(true);
+                var _ext = {};
+                _ext[eachExpr.iterator.val] = v;
+                _ext[eachExpr.iterator.key] = k;
+                Bind($copy, ref, [_ext].concat(ext));
+                $parent.appendChild($copy);
+
+                $targetList.on({
+                    push: function (v) {},
+                    unshift: function (v) {},
+                    pop: function () {},
+                    shift: function () {},
+                    splice: function (startIndex, howManyDeleted, itemInserted) {},
+                    set: function (oval, nval, i, arr) {}
+                });
+            });
+            $targetList.on({
+                push: function (v) {},
+                unshift: function (v) {},
+                pop: function () {},
+                shift: function () {},
+                splice: function (startIndex, howManyDeleted, itemInserted) {},
+                set: function (oval, nval, i, arr) {}
+            });
+        }
+
         var attrList = [];
         each($el.attributes, function (value, name) {
             if (!name.startsWith(conf$1.attrPrefix)) return;
             attrList.push(name);
             name = name.substr(conf$1.attrPrefix.length).toLowerCase();
-            switch (name) {
-            case 'value':
-                addEvent($el, 'input', function (e) {
-                    Data(ref, conf$1.refBeginsWithDollar ? value.substr(1) : value, this.value);
-                }, false);
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'value'));
-                break;
-            case 'innertext':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'innerText'));
-                break;
-            case 'innerhtml':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'innerHTML'));
-                break;
-            case 'class':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'className'));
-                break;
-            case 'style':
-                Relate(ref, relationFromExprToRef(value, ref, $el, 'style.cssText'));
-                break;
-            case 'each':
-                // TODO
-                break;
-            default:
-                var eventName = isEventName(name);
-                if (eventName) { /* Event */
-                    addEvent($el, eventName, function (e) {
-                        executeFunctionWithScope(value, ref);
-                    }, true);
-                } else { /* Attribute */
-                    Relate(ref, relationFromExprToRef(value, ref, $el, conf$1.attrsFlag + name));
-                }
+
+            var eventName = isEventName(name);
+            if (eventName) { /* Event */
+                addEvent($el, eventName, function (e) {
+                    executeFunctionWithScope(value, scopes);
+                }, true);
+                return;
             }
+
+            if ($el.nodeName.toLowerCase() === 'input' && name === 'value') { /* Two-way binding */
+                var valueProp = conf$1.refBeginsWithDollar ? value.substr(1) : value;
+                var valueTarget = seekTarget(valueProp, ext, ref);
+                addEvent($el, 'input', function (e) {
+                    Data(valueTarget, valueProp, this.value);
+                }, false);
+            }
+
+            if (domProp[name]) name = domProp[name];
+            else name = conf$1.attrsFlag + name; /* Attribute */
+
+            /* Binding */
+            var allrel = relationFromExprToRef(value, scopes, $el, name);
+            allrel.forEach(function (a) {
+                Relate(a.target, a.relations);
+            });
         });
+
+        /* Clean attributes */
         each(attrList, function (name) {
             $el.removeAttribute(name);
         });
+
+        /* Bind child nodes recursively */
         each($el, function (node) {
-            Bind(node, ref);
+            Bind(node, ref, ext);
         });
     } else if ($el.nodeType === Node.TEXT_NODE) {
         var tmpl = $el.nodeValue;
         var expr = parseExprsInRawText(tmpl).join(';');
-        if (expr === '') return;
-        Relate(ref, relationFromExprToRef(expr, ref, $el, 'nodeValue', function () {
-            return evaluateRawTextWithTmpl(tmpl, ref);
-        }));
+        if (expr === '') return null;
+
+        /* Binding */
+        var allrel = relationFromExprToRef(expr, scopes, $el, 'nodeValue', function () {
+            return evaluateRawTextWithTmpl(tmpl, scopes);
+        });
+        allrel.forEach(function (a) {
+            Relate(a.target, a.relations);
+        });
     }
+
+    return $el;
 }
 
 /**

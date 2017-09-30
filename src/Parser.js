@@ -34,7 +34,7 @@ function executeFunctionWithScope(expr, refs, target) {
         if (!target) target = refs[0];
     }
     
-    var ref;
+    var ref = {};
     Util.each(refs, function (r) {
         Util.each(r, function (v, p) {
             if (p in ref) return;
@@ -120,22 +120,60 @@ function parseRefsInExpr(expr) {
 }
 
 /**
+ * Regular expressions.
+ */
+var Regs = {
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+};
+
+/**
  * Parse `each` template expression from an attribute value string.
  * @param {String} expr 
- * @param {*} ref
+ * @param {Array} refs
  */
-function parseEachExpr(expr, ref) {
-    // TODO
-    var value = [];
+function parseEachExpr(expr, refs) {
+    var valStr;
+    var keyStr;
+    var targetStr;
+    var r;
+    if (conf.refBeginsWithDollar) {
+        r = Regs.each12.exec(expr);
+        if (r) {
+            valStr = r[1].substr(1);
+            keyStr = r[3].substr(1);
+            targetStr = r[5].substr(1);
+        } else {
+            r = Regs.each11.exec(expr);
+            valStr = r[1].substr(1);
+            targetStr = r[3].substr(1);
+        }
+    } else {
+        r = Regs.each22.exec(expr);
+        if (r) {
+            valStr = r[1];
+            keyStr = r[3];
+            targetStr = r[5];
+        } else {
+            r = Regs.each21.exec(expr);
+            valStr = r[1];
+            targetStr = r[3];
+        }
+    }
+    var root = Util.seekTarget(targetStr, refs);
+    var value = Data(root, targetStr);
     if (!(value instanceof OArray)) {
-        // TODO
+        value = new OArray(value);
+        Data(root, targetStr, value);
     }
     return {
         target: value,
-        targetRef: '',
+        targetRef: targetStr,
         iterator: {
-            val: '',
-            key: ''
+            val: valStr,
+            key: keyStr
         }
     };
 }
@@ -172,7 +210,7 @@ function relationFromExprToRef(expr, refs, target, proppath, resultFrom) {
         Util.each(refsInExpr, function (r) {
             var i = Util.seekTargetIndex(r, refs);
             if (!subData[i]) subData[i] = {};
-            subData[i][r] = Data(t, r);
+            subData[i][r] = Data(refs[i], r);
         });
         var re = [];
         Util.each(subData, function (s, i) {
@@ -252,5 +290,6 @@ export {
     relationFromExprToRef,
     executeFunctionWithScope,
     parseExprsInRawText,
-    evaluateRawTextWithTmpl
+    evaluateRawTextWithTmpl,
+    parseEachExpr
 }

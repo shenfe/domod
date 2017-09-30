@@ -24,7 +24,7 @@
         </div>
         <div>
             <select name="age" m-value="$form.age.value">
-                <option m-each="(val, key) in $form.age.options" value="key">{{val}}</option>
+                <option m-each="($val, $key) in $form.age.options" m-value="$key">{{$val}}</option>
             </select>
         </div>
     </form>
@@ -42,12 +42,12 @@
                 mobile: '15210001000',
                 age: {
                     value: '3',
-                    options: {
-                        '1': '0-18',
-                        '2': '19-36',
-                        '3': '37-54',
-                        '4': '55-200'
-                    }
+                    options: [
+                        '0-18',
+                        '19-36',
+                        '37-54',
+                        '55-200'
+                    ]
                 }
             }
         };
