@@ -223,11 +223,22 @@ var touchLeaves = function (obj) {
     });
 };
 
-var extend = function (dest, srcs, clean) {
+var extend = function (dest, srcs, clean, handler) {
     if (!isObject(dest)) return srcs;
-    var args = Array.prototype.slice.call(arguments, 1,
-        arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
-    clean = arguments[arguments.length - 1] === true;
+    var args;
+    var argOffset = 0;
+    handler = undefined;
+    clean = false;
+    var lastArg = arguments[arguments.length - 1];
+    if (isFunction(lastArg)) {
+        argOffset = 2;
+        handler = lastArg;
+        clean = !!arguments[arguments.length - 2];
+    } else if (lastArg === true) {
+        argOffset = 1;
+        clean = lastArg;
+    }
+    args = Array.prototype.slice.call(arguments, 1, arguments.length - argOffset);
 
     function extendObj(obj, src, clean) {
         if (!isObject(src)) return src;

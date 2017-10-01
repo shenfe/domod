@@ -11,7 +11,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = true && definePropertyFeature;
+var useDefineProperty = false && definePropertyFeature;
 
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty && !Util.isNode(target)) {
@@ -157,7 +157,11 @@ function Kernel(root, path, relations) {
                         target = obj.target;
                         property = obj.property;
                     }
-                    target[property] = Util.extend(target[property], val); // TODO
+                    if (Util.isObject(target[property]) && isObject(val)) {
+                        assign(proppath, val, target[property]);
+                    } else {
+                        target[property] = val;
+                    }
                     value = target[property];
                 } else {
                     value = Util.extend(value, val);
@@ -194,9 +198,7 @@ Kernel.prototype.disable = function () {
 Kernel.prototype.enable = function () {
     KernelStatus[this.__kid] = 1;
 };
-Kernel.prototype.destroy = function () {
-    // TODO
-};
+Kernel.prototype.destroy = function () {};
 
 /**
  * Whether an object is a relation definition.
@@ -271,7 +273,17 @@ function scopeOf(ref, root) {
     };
 }
 
-function extend(root, refPath, value) {}
+function assign(proppath, src, obj) {
+    obj = obj || Data(null, proppath);
+    Util.each(src, function (v, p) {
+        var pp = proppath + '.' + p;
+        if (!Util.hasProperty(obj, p) || Util.isBasic(obj[p]) || Util.isBasic(v)) {
+            Data(null, pp, Util.clone(v));
+        } else {
+            assign(pp, v, obj[p]);
+        }
+    });
+}
 
 /**
  * Get or set data, and trigger getters or setters.
@@ -289,11 +301,19 @@ function Data(root, refPath, value) {
         if (Util.isBasic(v)) return undefined;
         p = paths.shift();
         proppath += (proppath === '' ? '' : '.') + p;
-        if (toSet && paths.length === 0) { /* set */
-            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
-                GetterSetter[proppath].set(value, v, p);
+        if (toSet && paths.length === 0) { /* set */ // TODO
+            if (!useDefineProperty) {
+                if (Util.isObject(v[p]) && Util.isObject(value)) {
+                    assign(proppath, value, v[p]);
+                } else {
+                    if (GetterSetter[proppath] && GetterSetter[proppath].set) {
+                        GetterSetter[proppath].set(value, v, p);
+                    } else {
+                        v[p] = value;
+                    }
+                }
             } else {
-                v[p] = Util.extend(v[p], value); // TODO
+                v[p] = Util.extend(v[p], value);
             }
         } else { /* get */
             if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
