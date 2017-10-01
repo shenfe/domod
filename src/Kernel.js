@@ -271,6 +271,8 @@ function scopeOf(ref, root) {
     };
 }
 
+function extend(root, refPath, value) {}
+
 /**
  * Get or set data, and trigger getters or setters.
  */
