@@ -63,7 +63,12 @@ function Bind($el, ref, ext) {
                     pop: function () {},
                     shift: function () {},
                     splice: function (startIndex, howManyDeleted, itemInserted) {},
-                    set: function (oval, nval, i, arr) {}
+                    set: function (oval, nval, i, arr) {
+                        console.log('set')
+                        if (i == k) {
+                            _ext[eachExpr.iterator.val] = nval;
+                        }
+                    }
                 });
             });
             $targetList.on({

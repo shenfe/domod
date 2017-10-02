@@ -1,4 +1,8 @@
 import * as Util from './Util'
+import OArray from './OArray'
+import * as GlobalConf from './conf'
+
+var useDefineProperty = GlobalConf.useDefineProperty;
 
 var Store = {};
 var Dnstreams = {};
@@ -10,12 +14,19 @@ var PropKernelTable = {};
 var KernelStatus = {};
 var GetterSetter = {};
 
-var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = false && definePropertyFeature;
-
 function defineProperty(target, prop, desc, proppath) {
     if (useDefineProperty && !Util.isNode(target)) {
-        Object.defineProperty(target, prop, desc);
+        if (Util.isInstance(target, OArray)) {
+            if (desc.set) {
+                target.on('set', function (oval, nval, i, arr) {
+                    if (i == prop) {
+                        desc.set(nval);
+                    }
+                });
+            }
+        } else {
+            Object.defineProperty(target, prop, desc);
+        }
     } else {
         if ('value' in desc) {
             target[prop] = desc.value;
@@ -88,7 +99,7 @@ function Kernel(root, path, relations) {
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (useDefineProperty && Util.hasProperty(obj.target, obj.property)) {
+        if (useDefineProperty && Util.hasProperty(obj.target, obj.property) && !Util.isInstance(obj.target, OArray)) {
             delete obj.target[obj.property];
         }
     }
@@ -157,14 +168,23 @@ function Kernel(root, path, relations) {
                         target = obj.target;
                         property = obj.property;
                     }
-                    if (Util.isObject(target[property]) && isObject(val)) {
+                    if (Util.isObject(target[property]) && Util.isObject(val)) {
                         assign(proppath, val, target[property]);
                     } else {
-                        target[property] = val;
+                        if (Util.isInstance(target, OArray)) {
+                            target.set(property, val);
+                        } else {
+                            target[property] = val;
+                        }
                     }
                     value = target[property];
                 } else {
-                    value = Util.extend(value, val);
+                    if (Util.isInstance(obj.target, OArray) && !(Util.isObject(obj.target[property]) && Util.isObject(val))) {
+                        obj.target.set(property, val);
+                        value = obj.target[property];
+                    } else {
+                        value = Util.extend(value, val);
+                    }
                 }
                 ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
                     f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [value]);
