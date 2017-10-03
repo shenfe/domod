@@ -1,7 +1,6 @@
 import * as Util from './Util'
 import { Kernel, Relate, Data } from './Kernel'
 import * as Parser from './Parser'
-import OArray from './OArray'
 
 /**
  * Default configurations.
@@ -64,7 +63,6 @@ function Bind($el, ref, ext) {
                     shift: function () {},
                     splice: function (startIndex, howManyDeleted, itemInserted) {},
                     set: function (oval, nval, i, arr) {
-                        console.log('set')
                         if (i == k) {
                             _ext[eachExpr.iterator.val] = nval;
                         }

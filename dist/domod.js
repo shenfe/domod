@@ -220,15 +220,15 @@ var extend = function (dest, srcs, clean, handler) {
 };
 
 var allRefs = function (obj) {
+    if (obj instanceof Array) return [];
     var refs = [];
     each(obj, function (v, p) {
+        refs.push(p);
         if (isObject(v)) {
             var f = allRefs(v);
             each(f, function (pp) {
                 refs.push(p + '.' + pp);
             });
-        } else {
-            refs.push(p);
         }
     });
     return refs;
@@ -299,13 +299,8 @@ function flatten(root, objectFilter, clean) {
     return ext;
 }
 
-var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty$2 = definePropertyFeature;
-
-var useDefineProperty$1 = useDefineProperty$2;
-
 function defineProperty$1(target, prop, desc) {
-    if (useDefineProperty$1) {
+    if (Object.defineProperty) {
         Object.defineProperty(target, prop, desc);
     } else {
         if ('value' in desc) {
@@ -411,7 +406,6 @@ OArray.prototype.assignElement = function (i) {
             return this.get(i);
         },
         set: function (val) {
-            console.log('setting');
             this.set(i, val);
         },
         configurable: true,
@@ -497,8 +491,6 @@ OArray.prototype.forEach = function (fn) {
     };
 });
 
-var useDefineProperty = useDefineProperty$2;
-
 var Store = {};
 var Dnstreams = {};
 var ResultsIn = {};
@@ -510,7 +502,7 @@ var KernelStatus = {};
 var GetterSetter = {};
 
 function defineProperty(target, prop, desc, proppath) {
-    if (useDefineProperty && !isNode(target)) {
+    if (!isNode(target)) {
         if (isInstance(target, OArray)) {
             if (desc.set) {
                 target.on('set', function (oval, nval, i, arr) {
@@ -580,11 +572,9 @@ function propKernelOrder(proppath) {
 function Kernel(root, path, relations) {
     var obj = {};
     var value;
-    if (useDefineProperty) {
-        obj = scopeOf(path, root);
-        if (obj == null) return;
-        value = obj.target[obj.property];
-    }
+    obj = scopeOf(path, root);
+    if (obj == null) return;
+    value = obj.target[obj.property];
 
     var proppath = register(root) + '.' + path;
     var __kid = proppath + '#' + propKernelOrder(proppath);
@@ -594,7 +584,7 @@ function Kernel(root, path, relations) {
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (useDefineProperty && hasProperty(obj.target, obj.property) && !isInstance(obj.target, OArray)) {
+        if (hasProperty(obj.target, obj.property) && !isInstance(obj.target, OArray)) {
             delete obj.target[obj.property];
         }
     }
@@ -634,7 +624,7 @@ function Kernel(root, path, relations) {
 
     if (PropKernelTable[proppath].length === 1) {
         defineProperty(obj.target, obj.property, {
-            get: function (target, property) {
+            get: function () {
                 if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
                     var v = ResultsFrom[proppath].f.apply(
                         null,
@@ -642,45 +632,21 @@ function Kernel(root, path, relations) {
                     );
                     Data(null, proppath, v);
                     value = v;
-                } else {
-                    if (!useDefineProperty) {
-                        if (property !== undefined) {
-                            value = target[property];
-                        } else {
-                            obj = scopeOf(proppath);
-                            value = obj.target[obj.property];
-                        }
-                    }
                 }
                 return value;
             },
-            set: function (val, target, property) {
-                if (val === value) return;
-                // value = val;
-                if (!useDefineProperty) {
-                    if (property === undefined) {
-                        obj = scopeOf(proppath);
-                        target = obj.target;
-                        property = obj.property;
-                    }
-                    if (isObject(target[property]) && isObject(val)) {
-                        assign(proppath, val, target[property]);
-                    } else {
-                        if (isInstance(target, OArray)) {
-                            target.set(property, val);
-                        } else {
-                            target[property] = val;
-                        }
-                    }
-                    value = target[property];
-                } else {
-                    if (isInstance(obj.target, OArray) && !(isObject(obj.target[property]) && isObject(val))) {
-                        obj.target.set(property, val);
-                        value = obj.target[property];
+            set: function (val, force) {
+                if (!force && val === value) return;
+                if (val !== value) {
+                    if (isInstance(obj.target, OArray) && 
+                        !(isObject(value) && isObject(val))) {
+                        obj.target.set(obj.property, val);
+                        value = obj.target[obj.property];
                     } else {
                         value = extend(value, val);
                     }
                 }
+
                 ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
                     f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [value]);
                 });
@@ -788,18 +754,6 @@ function scopeOf(ref, root) {
     };
 }
 
-function assign(proppath, src, obj) {
-    obj = obj || Data(null, proppath);
-    each(src, function (v, p) {
-        var pp = proppath + '.' + p;
-        if (!hasProperty(obj, p) || isBasic(obj[p]) || isBasic(v)) {
-            Data(null, pp, clone(v));
-        } else {
-            assign(pp, v, obj[p]);
-        }
-    });
-}
-
 /**
  * Get or set data, and trigger getters or setters.
  */
@@ -817,28 +771,17 @@ function Data(root, refPath, value) {
         p = paths.shift();
         proppath += (proppath === '' ? '' : '.') + p;
         if (toSet && paths.length === 0) { /* set */ // TODO
-            if (!useDefineProperty) {
-                if (isObject(v[p]) && isObject(value)) {
-                    assign(proppath, value, v[p]);
-                } else {
-                    if (GetterSetter[proppath] && GetterSetter[proppath].set) {
-                        GetterSetter[proppath].set(value, v, p);
-                    } else {
-                        v[p] = value;
-                    }
-                }
+            if (isInstance(v, OArray) && 
+                !(isObject(v[p]) && isObject(val))) {
+                v.set(p, val);
             } else {
                 v[p] = extend(v[p], value);
             }
         } else { /* get */
-            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
-                v = GetterSetter[proppath].get(v, p);
-            } else {
-                v = v[p];
-            }
+            v = v[p];
         }
     }
-    return toSet ? value : v;
+    return toSet ? v[p] : v;
 }
 
 /**
@@ -1178,7 +1121,6 @@ function Bind($el, ref, ext) {
                     shift: function () {},
                     splice: function (startIndex, howManyDeleted, itemInserted) {},
                     set: function (oval, nval, i, arr) {
-                        console.log('set');
                         if (i == k) {
                             _ext[eachExpr.iterator.val] = nval;
                         }

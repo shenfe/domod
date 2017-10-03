@@ -217,7 +217,7 @@ function relationFromExprToRef(expr, refs, target, proppath, resultFrom) {
         Util.each(subData, function (s, i) {
             re.push({
                 target: refs[i],
-                refs: Util.isInstance(s, OArray) ? 'this' : Util.allRefs(s)
+                refs: Util.allRefs(s)
             });
         });
         return re;

@@ -1,12 +1,9 @@
 import * as Util from './Util'
-import * as GlobalConf from './conf'
-
-var useDefineProperty = GlobalConf.useDefineProperty;
 
 var canUseProxy = typeof Proxy === 'function';
 
 function defineProperty(target, prop, desc) {
-    if (useDefineProperty) {
+    if (Object.defineProperty) {
         Object.defineProperty(target, prop, desc);
     } else {
         if ('value' in desc) {
@@ -112,7 +109,6 @@ OArray.prototype.assignElement = function (i) {
             return this.get(i);
         },
         set: function (val) {
-            console.log('setting')
             this.set(i, val);
         },
         configurable: true,

@@ -19,8 +19,8 @@
     <body>
         <form>
             <div>
-                <input m-onclick="DMD.$(this, 'form.gender', 'male')" type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
-                <input m-onclick="DMD.$(this, 'form.gender', 'female')" type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
+                <input m-onclick="$form.gender = 'male'" type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
+                <input m-onclick="$form.gender = 'female'" type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
             </div>
             <div>
                 <input type="text" name="mobile" m-value="$form.mobile">
@@ -30,10 +30,6 @@
             <div>
                 <select name="age" m-value="$form.age.value">
                     <option m-each="($val, $key) in $form.age.options" m-value="$key">{{$val}}</option>
-                    <!-- <option value="1">0-18</option>
-                    <option value="2">19-36</option>
-                    <option value="3">37-54</option>
-                    <option value="4">55-200</option> -->
                 </select>
             </div>
         </form>

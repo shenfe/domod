@@ -271,15 +271,15 @@ var extend = function (dest, srcs, clean, handler) {
 };
 
 var allRefs = function (obj) {
+    if (obj instanceof Array) return [];
     var refs = [];
     each(obj, function (v, p) {
+        refs.push(p);
         if (isObject(v)) {
             var f = allRefs(v);
             each(f, function (pp) {
                 refs.push(p + '.' + pp);
             });
-        } else {
-            refs.push(p);
         }
     })
     return refs;
