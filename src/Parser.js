@@ -22,12 +22,29 @@ var domProp = {
 };
 
 /**
+ * Regular expressions.
+ */
+var Regs = {
+    assign1: /(\$[a-zA-Z$_][0-9a-zA-Z$_]*)\s*=[^=]/g,
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+};
+
+/**
  * Execute a function with a data object as the scope.
  * @param {String} expr 
  * @param {Array} refs 
  * @param {*} target 
  */
 function executeFunctionWithScope(expr, refs, target) {
+    if (conf.refBeginsWithDollar) {
+        expr = expr.replace(Regs.assign1, function (match, p1) {
+            return match.replace(p1, 'this.' + p1.substr(1));
+        });
+    }
+
     if (Util.isArray(refs)) {
         if (!target) target = refs[refs.length - 1];
     } else {
@@ -119,16 +136,6 @@ function parseRefsInExpr(expr) {
         return expr.match(reg);
     }
 }
-
-/**
- * Regular expressions.
- */
-var Regs = {
-    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
-};
 
 /**
  * Parse `each` template expression from an attribute value string.

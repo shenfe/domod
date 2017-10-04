@@ -48,7 +48,8 @@ function Bind($el, ref, ext) {
             $parent.removeChild($el);
 
             var $targetList = eachExpr.target;
-            Util.each($targetList, function (v, k) {
+
+            function bindItem(v, k) {
                 var $copy = $el.cloneNode(true);
                 var _ext = {};
                 _ext[eachExpr.iterator.val] = v;
@@ -64,13 +65,20 @@ function Bind($el, ref, ext) {
                     splice: function (startIndex, howManyDeleted, itemInserted) {},
                     set: function (oval, nval, i, arr) {
                         if (i == k) {
+                            console.log('set', i, nval);
                             _ext[eachExpr.iterator.val] = nval;
                         }
                     }
                 });
-            });
+            }
+
+            Util.each($targetList, bindItem);
+
             $targetList.on({
-                push: function (v) {},
+                push: function (v) {
+                    console.log('push', v, $targetList.length - 1);
+                    bindItem(v, $targetList.length - 1);
+                },
                 unshift: function (v) {},
                 pop: function () {},
                 shift: function () {},

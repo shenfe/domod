@@ -34,7 +34,7 @@
             </div>
         </form>
         <pre>{{JSON.stringify($form, null, 4)}}</pre>
-        <textarea m-oninput="DMD.$(this, 'form', JSON.parse($e.target.value))">{{JSON.stringify($form, null, 4)}}</textarea>
+        <textarea m-oninput="$form = JSON.parse($e.target.value)">{{JSON.stringify($form, null, 4)}}</textarea>
         <script>
             var store = {
                 parse: function (v) {
