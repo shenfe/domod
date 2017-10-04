@@ -32,6 +32,11 @@
                     <option m-each="($val, $key) in $form.age.options" m-value="$key">{{$val}}</option>
                 </select>
             </div>
+            <div>
+                <select name="city" m-value="$form.city.value">
+                    <option m-each="($val, $key) in $form.city.options" m-value="$key">{{$val.code}}.{{$val.name}}</option>
+                </select>
+            </div>
         </form>
         <pre>{{JSON.stringify($form, null, 4)}}</pre>
         <textarea m-oninput="$form = JSON.parse($e.target.value)">{{JSON.stringify($form, null, 4)}}</textarea>
@@ -53,6 +58,16 @@
                             '19-36',
                             '37-54',
                             '55-200'
+                        ]
+                    },
+                    city: {
+                        value: '1',
+                        options: [
+                            { code: 1, name: 'beijing' },
+                            { code: 2, name: 'newyork' },
+                            { code: 3, name: 'tokyo' },
+                            { code: 4, name: 'london' },
+                            { code: 5, name: 'paris' }
                         ]
                     }
                 }

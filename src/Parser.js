@@ -113,7 +113,7 @@ function replaceTmplInStrLiteral(str) {
 function evaluateRawTextWithTmpl(text, refs) {
     var reg = /{{([^{}]*)}}/g;
     var result = text.replace(reg, function (match, p1) {
-        return evaluateExpression(p1, refs);
+        return executeFunctionWithScope(p1, refs);
     });
     return result;
 }

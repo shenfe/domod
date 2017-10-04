@@ -772,8 +772,8 @@ function Data(root, refPath, value) {
         proppath += (proppath === '' ? '' : '.') + p;
         if (toSet && paths.length === 0) { /* set */ // TODO
             if (isInstance(v, OArray) && 
-                !(isObject(v[p]) && isObject(val))) {
-                v.set(p, val);
+                !(isObject(v[p]) && isObject(value))) {
+                v.set(p, value);
             } else {
                 v[p] = extend(v[p], value);
             }
@@ -895,7 +895,7 @@ function replaceTmplInStrLiteral(str) {
 function evaluateRawTextWithTmpl(text, refs) {
     var reg = /{{([^{}]*)}}/g;
     var result = text.replace(reg, function (match, p1) {
-        return evaluateExpression(p1, refs);
+        return executeFunctionWithScope(p1, refs);
     });
     return result;
 }

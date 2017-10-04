@@ -294,8 +294,8 @@ function Data(root, refPath, value) {
         proppath += (proppath === '' ? '' : '.') + p;
         if (toSet && paths.length === 0) { /* set */ // TODO
             if (Util.isInstance(v, OArray) && 
-                !(Util.isObject(v[p]) && Util.isObject(val))) {
-                v.set(p, val);
+                !(Util.isObject(v[p]) && Util.isObject(value))) {
+                v.set(p, value);
             } else {
                 v[p] = Util.extend(v[p], value);
             }
