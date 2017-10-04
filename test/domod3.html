@@ -13,33 +13,44 @@
             textarea {
                 width: 300px;
                 height: 300px;
+                margin-top: 20px;
+            }
+            label {
+                float: left;
+                width: 80px;
+                text-align: right;
+                padding-right: 10px;
             }
         </style>
     </head>
     <body>
         <form>
             <div>
+                <label>gender:</label>
                 <input m-onclick="$form.gender = 'male'" type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
                 <input m-onclick="$form.gender = 'female'" type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
             </div>
             <div>
+                <label>mobile:</label>
                 <input type="text" name="mobile" m-value="$form.mobile">
                 <span m-style="{ display: !!$form.mobile ? 'inline' : 'none' }">You input: {{$parse($form.mobile)}}.</span>
                 <span m-class="['some-class', { red: !$mobileInputStatus }]" m-style="{ display: !$mobileInputStatus ? 'inline' : 'none' }">{{$form.mobile}} is {{$mobileInputStatus}}!</span>
             </div>
             <div>
+                <label>age:</label>
                 <select name="age" m-value="$form.age.value">
                     <option m-each="($val, $key) in $form.age.options" m-value="$key">{{$val}}</option>
                 </select>
             </div>
             <div>
+                <label>city:</label>
                 <select name="city" m-value="$form.city.value">
                     <option m-each="($val, $key) in $form.city.options" m-value="$key">{{$val.code}}.{{$val.name}}</option>
                 </select>
             </div>
         </form>
-        <pre>{{JSON.stringify($form, null, 4)}}</pre>
         <textarea m-oninput="$form = JSON.parse($e.target.value)">{{JSON.stringify($form, null, 4)}}</textarea>
+        <pre>{{JSON.stringify($form, null, 4)}}</pre>
         <script>
             var store = {
                 parse: function (v) {

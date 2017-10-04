@@ -85,6 +85,8 @@ function Bind($el, ref, ext) {
                 splice: function (startIndex, howManyDeleted, itemInserted) {},
                 set: function (oval, nval, i, arr) {}
             });
+
+            return;
         }
         
         /* Bind child nodes recursively */

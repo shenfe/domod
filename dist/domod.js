@@ -895,7 +895,11 @@ function replaceTmplInStrLiteral(str) {
 function evaluateRawTextWithTmpl(text, refs) {
     var reg = /{{([^{}]*)}}/g;
     var result = text.replace(reg, function (match, p1) {
-        return executeFunctionWithScope(p1, refs);
+        var result = null;
+        try {
+            result = executeFunctionWithScope(p1, refs);
+        } catch (e) {}
+        return result;
     });
     return result;
 }
@@ -1150,6 +1154,8 @@ function Bind($el, ref, ext) {
                 splice: function (startIndex, howManyDeleted, itemInserted) {},
                 set: function (oval, nval, i, arr) {}
             });
+
+            return;
         }
         
         /* Bind child nodes recursively */
