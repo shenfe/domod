@@ -8,7 +8,7 @@ module.exports = {
     dest: 'dist/domod.min.js',
     plugins: [
         uglify({
-            ie8: true
+            // ie8: true
         })
     ]
 };
