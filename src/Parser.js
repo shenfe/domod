@@ -12,6 +12,9 @@ var conf = {
     attrsFlag: 'attrs.'
 };
 
+/**
+ * DOM attribute names to bind.
+ */
 var domProp = {
     'value': 'value',
     'checked': 'checked',
@@ -25,7 +28,6 @@ var domProp = {
  * Regular expressions.
  */
 var Regs = {
-    assign1: /(\$[a-zA-Z$_][0-9a-zA-Z$_]*)\s*=[^=]/g,
     each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
     each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
     each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
@@ -37,10 +39,11 @@ var Regs = {
  * @param {String} expr 
  * @param {Array} refs 
  * @param {*} target 
+ * @return {*}
  */
 function executeFunctionWithScope(expr, refs, target) {
     if (conf.refBeginsWithDollar) {
-        expr = expr.replace(Regs.assign1, function (match, p1) {
+        expr = expr.replace(/(\$[a-zA-Z$_][0-9a-zA-Z$_]*)\s*=[^=]/g, function (match, p1) {
             return match.replace(p1, 'this.' + p1.substr(1));
         });
     }
@@ -51,7 +54,7 @@ function executeFunctionWithScope(expr, refs, target) {
         refs = [refs];
         if (!target) target = refs[0];
     }
-    
+
     var ref = {};
     Util.each(refs, function (r) {
         Util.each(r, function (v, p) {
@@ -145,6 +148,7 @@ function parseRefsInExpr(expr) {
  * Parse `each` template expression from an attribute value string.
  * @param {String} expr 
  * @param {Array} refs
+ * @return {Object}
  */
 function parseEachExpr(expr, refs) {
     var valStr;

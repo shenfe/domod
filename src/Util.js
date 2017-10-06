@@ -77,14 +77,14 @@ var isCSSSelector = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v) && isFunction(v.forEach)) {
+    if (!isArray(v) && isFunction(v.forEach)) {
         v.forEach(func);
     } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
         }
-    } else if (isArray(v)) {
+    } else if (isLikeArray(v)) {
         if (!arrayReverse) {
             for (i = 0, len = v.length; i < len; i++) {
                 if (func(v[i], i) === false) break;
@@ -137,12 +137,13 @@ var eachIndexOf = function (str, pat) {
 };
 
 var eachUnique = function (arr, func) {
-    if (!isArray(arr)) return;
+    if (!isLikeArray(arr)) return;
     var map = {};
     for (var i = 0, len = arr.length; i < len; i++) {
-        if (!isNumber(arr[i]) || !isString(arr[i]) || map[arr[i]]) continue;
-        map[arr[i]] = true;
-        var r = func(arr[i]);
+        var vi = arr[i];
+        if (!isNumber(vi) || !isString(vi) || map[vi]) continue;
+        map[vi] = true;
+        var r = func(vi);
         if (r === false) break;
     }
 };
@@ -174,7 +175,7 @@ var clone = function (val) {
 var hasProperty = function (val, p) {
     if (isObject(val)) {
         return val.hasOwnProperty(p);
-    } else if (isArray(val)) {
+    } else if (isLikeArray(val)) {
         var n = parseInt(p);
         return isNumeric(p) && val.length > n && n >= 0;
     }
@@ -185,11 +186,11 @@ var clear = function (val, p, withBasicVal) {
     var inRef = isString(p) || isNumber(p);
     var target = inRef ? val[p] : val;
 
-    if (isObject(target) || isArray(target)) {
+    if (isObject(target) || isLikeArray(target)) {
         each(target, function (v, p) {
             clear(target, p);
         });
-        if (isArray(target)) {
+        if (isLikeArray(target)) {
             shrinkArray(target);
         }
     }
@@ -203,11 +204,11 @@ var shrinkArray = function (arr, len) {
     var limited = isNumber(len);
     if (!limited) {
         each(arr, function (v, i) {
-            if (v === undefined) arr.length--;
+            if (v == null) arr.pop();
         }, true);
     } else {
         each(arr, function (v, i) {
-            if (i >= len) arr.length--;
+            if (i >= len) arr.pop();
             else return false;
         }, true);
         while (arr.length < len) {
@@ -279,7 +280,7 @@ var extend = function (dest, srcs, clean, handler) {
 };
 
 var allRefs = function (obj) {
-    if (obj instanceof Array) return [];
+    if (isLikeArray(obj)) return [];
     var refs = [];
     each(obj, function (v, p) {
         refs.push(p);

@@ -23,11 +23,15 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return v != null && Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && !(v instanceof Array) && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
     return Object.prototype.toString.call(v) === '[object Array]';
+};
+
+var isLikeArray = function (v) {
+    return v instanceof Array;
 };
 
 var isBasic = function (v) {
@@ -50,12 +54,14 @@ var isNamedNodeMap = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v)) {
+    if (!isArray(v) && isFunction(v.forEach)) {
+        v.forEach(func);
+    } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
         }
-    } else if (isArray(v)) {
+    } else if (isLikeArray(v)) {
         if (!arrayReverse) {
             for (i = 0, len = v.length; i < len; i++) {
                 if (func(v[i], i) === false) break;
@@ -89,8 +95,6 @@ var each = function (v, func, arrayReverse) {
         for (i = 0, len = v.length; i < len; i++) {
             if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
-    } else if (v && isFunction(v.forEach)) {
-        v.forEach(func);
     }
 };
 
@@ -101,8 +105,8 @@ var clone = function (val) {
         each(val, function (v, p) {
             r[p] = clone(v);
         });
-    } else if (isArray(val)) {
-        r = [];
+    } else if (isLikeArray(val)) {
+        r = new val.constructor();
         each(val, function (v) {
             r.push(clone(v));
         });
@@ -113,7 +117,7 @@ var clone = function (val) {
 var hasProperty = function (val, p) {
     if (isObject(val)) {
         return val.hasOwnProperty(p);
-    } else if (isArray(val)) {
+    } else if (isLikeArray(val)) {
         var n = parseInt(p);
         return isNumeric(p) && val.length > n && n >= 0;
     }
@@ -124,11 +128,11 @@ var clear = function (val, p, withBasicVal) {
     var inRef = isString(p) || isNumber(p);
     var target = inRef ? val[p] : val;
 
-    if (isObject(target) || isArray(target)) {
+    if (isObject(target) || isLikeArray(target)) {
         each(target, function (v, p) {
             clear(target, p);
         });
-        if (isArray(target)) {
+        if (isLikeArray(target)) {
             shrinkArray(target);
         }
     }
@@ -142,11 +146,11 @@ var shrinkArray = function (arr, len) {
     var limited = isNumber(len);
     if (!limited) {
         each(arr, function (v, i) {
-            if (v === undefined) arr.length--;
+            if (v == null) arr.pop();
         }, true);
     } else {
         each(arr, function (v, i) {
-            if (i >= len) arr.length--;
+            if (i >= len) arr.pop();
             else return false;
         }, true);
         while (arr.length < len) {
@@ -156,21 +160,39 @@ var shrinkArray = function (arr, len) {
     return arr;
 };
 
-var extend = function (dest, srcs, clean) {
-    if (!isObject(dest)) return null;
-    var args = Array.prototype.slice.call(arguments, 1,
-        arguments[arguments.length - 1] === true ? (arguments.length - 1) : arguments.length);
-    clean = arguments[arguments.length - 1] === true;
+var extend = function (dest, srcs, clean, handler) {
+    if (!isObject(dest)) return srcs;
+    var args;
+    var argOffset = 0;
+    handler = undefined;
+    clean = false;
+    var lastArg = arguments[arguments.length - 1];
+    if (isFunction(lastArg)) {
+        argOffset = 2;
+        handler = lastArg;
+        clean = !!arguments[arguments.length - 2];
+    } else if (lastArg === true) {
+        argOffset = 1;
+        clean = lastArg;
+    }
+    args = Array.prototype.slice.call(arguments, 1, arguments.length - argOffset);
 
     function extendObj(obj, src, clean) {
-        if (!isObject(src)) return;
+        if (!isObject(src) && !isLikeArray(src)) return src;
+        if (isLikeArray(src)) {
+            if (!isLikeArray(obj)) return clone(src);
+            else {
+                obj.splice.apply(obj, [0, obj.length].concat(src));
+                return obj;
+            }
+        }
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
                 if (obj[p] !== v) {
                     obj[p] = clone(v);
                 }
             } else {
-                extendObj(obj[p], v, clean);
+                obj[p] = extendObj(obj[p], v, clean);
             }
         });
         if (clean) {
@@ -179,14 +201,12 @@ var extend = function (dest, srcs, clean) {
                     clear(obj, p);
                 }
             });
-            if (isArray(obj)) {
-                shrinkArray(obj);
-            }
         }
+        return obj;
     }
 
     each(args, function (src) {
-        extendObj(dest, src, clean);
+        dest = extendObj(dest, src, clean);
     });
     return dest;
 };
@@ -238,6 +258,13 @@ OArray.prototype = [];
 OArray.prototype.constructor = OArray;
 
 OArray.prototype.addEventListener = function (eventName, handler) {
+    var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.addEventListener(evt, hdl);
+        });
+        return;
+    }
     if (!this['on' + eventName] || !isFunction(handler)) return;
     this['on' + eventName].push(handler);
 };
@@ -245,6 +272,12 @@ OArray.prototype.on = OArray.prototype.addEventListener;
 
 OArray.prototype.removeEventListener = function (eventName, handler) {
     var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.removeEventListener(evt, hdl);
+        });
+        return;
+    }
     if (!this['on' + eventName] || !isFunction(handler)) return;
     var handlers = this['on' + eventName];
     each(handlers, function (h, i) {
@@ -369,6 +402,17 @@ OArray.prototype.forEach = function (fn) {
         return Array.prototype[f].apply(this.toArray(), arguments);
     };
 });
+
+OArray.prototype.clear = function () {
+    while (this.length) {
+        this.pop();
+    }
+    return this;
+};
+
+OArray.prototype.cast = function (arr) {
+    return this.splice.apply(this, [0, this.length].concat(arr));
+};
 
 return OArray;
 

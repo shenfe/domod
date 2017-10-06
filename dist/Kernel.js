@@ -11,6 +11,10 @@ var gid = (function () {
     };
 })();
 
+var isNumber = function (v) {
+    return typeof v === 'number';
+};
+
 var isNumeric = function (v) {
     var n = parseInt(v);
     if (isNaN(n)) return false;
@@ -26,11 +30,15 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return v != null && Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && !(v instanceof Array) && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
     return Object.prototype.toString.call(v) === '[object Array]';
+};
+
+var isLikeArray = function (v) {
+    return v instanceof Array;
 };
 
 var isBasic = function (v) {
@@ -39,6 +47,10 @@ var isBasic = function (v) {
         || typeof v === 'number'
         || typeof v === 'string'
         || typeof v === 'function';
+};
+
+var isInstance = function (v, creator) {
+    return typeof creator === 'function' && v instanceof creator;
 };
 
 var isNode = function (v) {
@@ -53,12 +65,14 @@ var isNamedNodeMap = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v)) {
+    if (!isArray(v) && isFunction(v.forEach)) {
+        v.forEach(func);
+    } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
         }
-    } else if (isArray(v)) {
+    } else if (isLikeArray(v)) {
         if (!arrayReverse) {
             for (i = 0, len = v.length; i < len; i++) {
                 if (func(v[i], i) === false) break;
@@ -92,19 +106,120 @@ var each = function (v, func, arrayReverse) {
         for (i = 0, len = v.length; i < len; i++) {
             if (func(v[i]['nodeValue'], v[i]['nodeName']) === false) break;
         }
-    } else if (v && isFunction(v.forEach)) {
-        v.forEach(func);
     }
+};
+
+var clone = function (val) {
+    var r = val;
+    if (isObject(val)) {
+        r = {};
+        each(val, function (v, p) {
+            r[p] = clone(v);
+        });
+    } else if (isLikeArray(val)) {
+        r = new val.constructor();
+        each(val, function (v) {
+            r.push(clone(v));
+        });
+    }
+    return r;
 };
 
 var hasProperty = function (val, p) {
     if (isObject(val)) {
         return val.hasOwnProperty(p);
-    } else if (isArray(val)) {
+    } else if (isLikeArray(val)) {
         var n = parseInt(p);
         return isNumeric(p) && val.length > n && n >= 0;
     }
     return false;
+};
+
+var clear = function (val, p, withBasicVal) {
+    var inRef = isString(p) || isNumber(p);
+    var target = inRef ? val[p] : val;
+
+    if (isObject(target) || isLikeArray(target)) {
+        each(target, function (v, p) {
+            clear(target, p);
+        });
+        if (isLikeArray(target)) {
+            shrinkArray(target);
+        }
+    }
+
+    if (inRef) {
+        val[p] = withBasicVal;
+    }
+};
+
+var shrinkArray = function (arr, len) {
+    var limited = isNumber(len);
+    if (!limited) {
+        each(arr, function (v, i) {
+            if (v == null) arr.pop();
+        }, true);
+    } else {
+        each(arr, function (v, i) {
+            if (i >= len) arr.pop();
+            else return false;
+        }, true);
+        while (arr.length < len) {
+            arr.push(null);
+        }
+    }
+    return arr;
+};
+
+var extend = function (dest, srcs, clean, handler) {
+    if (!isObject(dest)) return srcs;
+    var args;
+    var argOffset = 0;
+    handler = undefined;
+    clean = false;
+    var lastArg = arguments[arguments.length - 1];
+    if (isFunction(lastArg)) {
+        argOffset = 2;
+        handler = lastArg;
+        clean = !!arguments[arguments.length - 2];
+    } else if (lastArg === true) {
+        argOffset = 1;
+        clean = lastArg;
+    }
+    args = Array.prototype.slice.call(arguments, 1, arguments.length - argOffset);
+
+    function extendObj(obj, src, clean) {
+        if (!isObject(src) && !isLikeArray(src)) return src;
+        if (isLikeArray(src)) {
+            if (!isLikeArray(obj)) return clone(src);
+            else {
+                obj.splice.apply(obj, [0, obj.length].concat(src));
+                return obj;
+            }
+        }
+        each(src, function (v, p) {
+            if (!hasProperty(obj, p) || isBasic(v)) {
+                if (obj[p] !== v) {
+                    obj[p] = clone(v);
+                }
+            } else {
+                obj[p] = extendObj(obj[p], v, clean);
+            }
+        });
+        if (clean) {
+            each(obj, function (v, p) {
+                if (!hasProperty(src, p)) {
+                    clear(obj, p);
+                }
+            });
+        }
+        return obj;
+    }
+
+    each(args, function (src) {
+        dest = extendObj(dest, src, clean);
+    });
+    return dest;
 };
 
 function flatten(root, objectFilter, clean) {
@@ -125,6 +240,209 @@ function flatten(root, objectFilter, clean) {
     return ext;
 }
 
+function defineProperty$1(target, prop, desc) {
+    if (Object.defineProperty) {
+        Object.defineProperty(target, prop, desc);
+    } else {
+        if ('value' in desc) {
+            target[prop] = desc.value;
+        }
+    }
+}
+
+function OArray(arr, option) {
+    if (isObject(arr) && arguments.length === 1) option = arr;
+    if (!isArray(arr)) arr = [];
+    if (!option) option = {};
+
+    defineProperty$1(this, '__data', {
+        value: arr
+    });
+
+    defineProperty$1(this, 'length', {
+        get: function () {
+            return arr.length;
+        },
+        set: function (v) {
+            arr.length = v;
+        }
+    });
+
+    var _this = this;
+
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    eventNames.forEach(function (e) {
+        defineProperty$1(_this, 'on' + e, { value: [] });
+    });
+    eventNames.forEach(function (e) {
+        _this.addEventListener(e, option['on' + e]);
+    });
+
+    each(arr, function (v, i) {
+        _this.assignElement(i);
+    });
+}
+
+OArray.prototype = [];
+OArray.prototype.constructor = OArray;
+
+OArray.prototype.addEventListener = function (eventName, handler) {
+    var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.addEventListener(evt, hdl);
+        });
+        return;
+    }
+    if (!this['on' + eventName] || !isFunction(handler)) return;
+    this['on' + eventName].push(handler);
+};
+OArray.prototype.on = OArray.prototype.addEventListener;
+
+OArray.prototype.removeEventListener = function (eventName, handler) {
+    var _this = this;
+    if (isObject(eventName)) {
+        each(eventName, function (hdl, evt) {
+            _this.removeEventListener(evt, hdl);
+        });
+        return;
+    }
+    if (!this['on' + eventName] || !isFunction(handler)) return;
+    var handlers = this['on' + eventName];
+    each(handlers, function (h, i) {
+        if (h === handler) {
+            handlers.splice(i, 1);
+            return false;
+        }
+    });
+};
+OArray.prototype.off = OArray.prototype.removeEventListener;
+
+OArray.prototype.dispatchEvent = function (eventName, args) {
+    args = Array.prototype.slice.call(arguments, 1);
+    var _this = this;
+    each(this['on' + eventName], function (handler) {
+        handler.apply(_this, args);
+    });
+};
+OArray.prototype.trigger = OArray.prototype.dispatchEvent;
+
+OArray.prototype.get = function (i) {
+    return this.__data[i];
+};
+
+OArray.prototype.set = function (i, v) {
+    var e = this.__data[i];
+    if (isBasic(e) || isBasic(v)) {
+        this.dispatchEvent('set', e, v, i, this.__data);
+        this.__data[i] = v;
+    } else {
+        extend(e, v, true);
+    }
+};
+
+OArray.prototype.assignElement = function (i) {
+    defineProperty$1(this, i, {
+        get: function () {
+            return this.get(i);
+        },
+        set: function (val) {
+            this.set(i, val);
+        },
+        configurable: true,
+        enumerable: true
+    });
+};
+OArray.prototype.deleteElement = function () {
+    if (this.hasOwnProperty(this.length - 1)) delete this[this.length - 1];
+};
+
+['push', 'unshift'].forEach(function (f) {
+    OArray.prototype[f] = function (v) {
+        this.__data[f](v);
+        this.assignElement(this.length - 1);
+        this.dispatchEvent(f, v);
+    };
+});
+['pop', 'shift'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
+        this.deleteElement();
+        this.__data[f]();
+    };
+});
+
+OArray.prototype.toArray = function (notClone) {
+    return notClone ? this.__data : clone(this.__data);
+};
+
+OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
+    if (!isNumber(startIndex) || startIndex < 0) startIndex = 0;
+    if (startIndex >= this.length) startIndex = this.length;
+    if (!isNumber(howManyToDelete) || howManyToDelete < 0) howManyToDelete = 0;
+    if (howManyToDelete + startIndex > this.length) howManyToDelete = this.length - startIndex;
+
+    var itemsToDelete = [];
+    for (var i = startIndex; i < startIndex + howManyToDelete; i++) {
+        itemsToDelete.push(clone(this.get(i)));
+    }
+
+    var itemsToInsert = Array.prototype.slice.call(arguments, 2);
+    var howManyToInsert = itemsToInsert.length;
+
+    var howManyToSet = Math.min(howManyToDelete, howManyToInsert);
+    for (var j = startIndex; j < startIndex + howManyToSet; j++) {
+        this.set(j, itemsToInsert[j - startIndex]);
+    }
+
+    if (howManyToDelete === howManyToInsert) return;
+
+    var args;
+    if (howManyToDelete > howManyToInsert) {
+        args = [startIndex + howManyToInsert, howManyToDelete - howManyToInsert];
+        Array.prototype.splice.apply(this.__data, args);
+    } else {
+        args = [startIndex + howManyToDelete, 0].concat(itemsToInsert.slice(howManyToDelete));
+        Array.prototype.splice.apply(this.__data, args);
+    }
+    this.dispatchEvent.apply(this, ['splice'].concat(args));
+};
+
+OArray.prototype.forEach = function (fn) {
+    for (var i = 0; i < this.length; i++) {
+        var r = fn(this.get(i), i);
+        if (r === false) break;
+    }
+};
+
+['reverse', 'sort'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        var r = clone(this.__data);
+        Array.prototype[f].apply(r, arguments);
+        for (var i = 0; i < this.length; i++) {
+            this.set(i, r[i]);
+        }
+    };
+});
+
+['slice', 'concat', 'filter', 'map', 'reduce',
+    'indexOf', 'find', 'findIndex', 'fill', 'join'].forEach(function (f) {
+    OArray.prototype[f] = function () {
+        return Array.prototype[f].apply(this.toArray(), arguments);
+    };
+});
+
+OArray.prototype.clear = function () {
+    while (this.length) {
+        this.pop();
+    }
+    return this;
+};
+
+OArray.prototype.cast = function (arr) {
+    return this.splice.apply(this, [0, this.length].concat(arr));
+};
+
 var Store = {};
 var Dnstreams = {};
 var ResultsIn = {};
@@ -135,12 +453,19 @@ var PropKernelTable = {};
 var KernelStatus = {};
 var GetterSetter = {};
 
-var definePropertyFeature = !!Object.defineProperty;
-var useDefineProperty = false && definePropertyFeature;
-
 function defineProperty(target, prop, desc, proppath) {
-    if (useDefineProperty) {
-        Object.defineProperty(target, prop, desc);
+    if (!isNode(target)) {
+        if (isInstance(target, OArray)) {
+            if (desc.set) {
+                target.on('set', function (oval, nval, i, arr) {
+                    if (i == prop) {
+                        desc.set(nval);
+                    }
+                });
+            }
+        } else {
+            Object.defineProperty(target, prop, desc);
+        }
     } else {
         if ('value' in desc) {
             target[prop] = desc.value;
@@ -167,13 +492,9 @@ function register(root) {
     if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
         var id = 'kr_' + gid();
-        if (!isNode(root)) {
-            defineProperty(root, '__kernel_root', {
-                value: id
-            });
-        } else {
-            root.__kernel_root = id;
-        }
+        defineProperty(root, '__kernel_root', {
+            value: id
+        });
         Store[id] = root;
     }
     return root.__kernel_root;
@@ -187,9 +508,8 @@ function formatStream(stream, root) {
             if (isString(a)) return register(root) + '.' + a;
             return null;
         });
-    } else {
-        return [];
     }
+    return [];
 }
 
 function propKernelOrder(proppath) {
@@ -204,11 +524,9 @@ function propKernelOrder(proppath) {
 function Kernel(root, path, relations) {
     var obj = {};
     var value;
-    if (useDefineProperty) {
-        obj = scopeOf(path, root);
-        if (obj == null) return;
-        value = obj.target[obj.property];
-    }
+    obj = scopeOf(path, root);
+    if (obj == null) return;
+    value = obj.target[obj.property];
 
     var proppath = register(root) + '.' + path;
     var __kid = proppath + '#' + propKernelOrder(proppath);
@@ -218,7 +536,7 @@ function Kernel(root, path, relations) {
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
-        if (useDefineProperty && hasProperty(obj.target, obj.property)) {
+        if (hasProperty(obj.target, obj.property) && !isInstance(obj.target, OArray)) {
             delete obj.target[obj.property];
         }
     }
@@ -258,7 +576,7 @@ function Kernel(root, path, relations) {
 
     if (PropKernelTable[proppath].length === 1) {
         defineProperty(obj.target, obj.property, {
-            get: function (target, property) {
+            get: function () {
                 if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
                     var v = ResultsFrom[proppath].f.apply(
                         null,
@@ -266,31 +584,23 @@ function Kernel(root, path, relations) {
                     );
                     Data(null, proppath, v);
                     value = v;
-                } else {
-                    if (!useDefineProperty) {
-                        if (property !== undefined) {
-                            value = target[property];
-                        } else {
-                            obj = scopeOf(proppath);
-                            value = obj.target[obj.property];
-                        }
-                    }
                 }
                 return value;
             },
-            set: function (val, target, property) {
-                if (val === value) return;
-                value = val;
-                if (!useDefineProperty) {
-                    if (property !== undefined) {
-                        target[property] = val;
+            set: function (val, force) {
+                if (!force && val === value) return;
+                if (val !== value) {
+                    if (isInstance(obj.target, OArray) &&
+                        !(isObject(value) && isObject(val))) {
+                        obj.target.set(obj.property, val);
+                        value = obj.target[obj.property];
                     } else {
-                        obj = scopeOf(proppath);
-                        obj.target[obj.property] = val;
+                        value = extend(value, val);
                     }
                 }
+
                 ResultsIn[proppath] && ResultsIn[proppath].forEach(function (f, k) {
-                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [val]);
+                    f && (KernelStatus[proppath + '#' + k] !== 0) && f.apply(root, [value]);
                 });
                 if (Dnstreams[proppath]) {
                     each(Dnstreams[proppath], function (kmap, ds) {
@@ -321,9 +631,7 @@ Kernel.prototype.disable = function () {
 Kernel.prototype.enable = function () {
     KernelStatus[this.__kid] = 1;
 };
-Kernel.prototype.destroy = function () {
-    // TODO
-};
+Kernel.prototype.destroy = function () {};
 
 /**
  * Whether an object is a relation definition.
@@ -414,20 +722,18 @@ function Data(root, refPath, value) {
         if (isBasic(v)) return undefined;
         p = paths.shift();
         proppath += (proppath === '' ? '' : '.') + p;
-        if (toSet && paths.length === 0) { /* set */
-            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].set) {
-                GetterSetter[proppath].set(value, v, p);
-            }
-            v[p] = value;
-        } else { /* get */
-            if (!useDefineProperty && GetterSetter[proppath] && GetterSetter[proppath].get) {
-                v = GetterSetter[proppath].get(v, p);
+        if (toSet && paths.length === 0) { /* set */ // TODO
+            if (isInstance(v, OArray) &&
+                !(isObject(v[p]) && isObject(value))) {
+                v.set(p, value);
             } else {
-                v = v[p];
+                v[p] = extend(v[p], value);
             }
+        } else { /* get */
+            v = v[p];
         }
     }
-    return toSet ? value : v;
+    return toSet ? v[p] : v;
 }
 
 exports.Kernel = Kernel;

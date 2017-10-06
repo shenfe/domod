@@ -19,8 +19,8 @@ function pathContains(path, ref) {
 }
 
 var domValueToBind = {
-    'input': true,
-    'select': true
+    'input': 'input',
+    'select': 'change'
 };
 
 /**
@@ -35,6 +35,8 @@ function Bind($el, ref, ext) {
     ext = ext ? (Util.isArray(ext) ? ext : [ext]) : []; /* Ensure `ext` is an array */
     var scopes = ext.concat(ref);
 
+    var nodeName = $el.nodeName.toLowerCase();
+
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
 
@@ -45,7 +47,8 @@ function Bind($el, ref, ext) {
             var eachExpr = Parser.parseEachExpr(eachExprText, ref);
             $el.removeAttribute(eachAttrName);
             var $parent = $el.parentNode;
-            $parent.removeChild($el);
+            // $parent.removeChild($el);
+            $parent.innerHTML = '';
 
             var $targetList = eachExpr.target;
 
@@ -55,40 +58,85 @@ function Bind($el, ref, ext) {
                 _ext[eachExpr.iterator.val] = v;
                 _ext[eachExpr.iterator.key] = k;
                 Bind($copy, ref, [_ext].concat(ext));
-                $parent.appendChild($copy);
 
                 $targetList.on({
-                    push: function (v) {},
-                    unshift: function (v) {},
-                    pop: function () {},
-                    shift: function () {},
-                    splice: function (startIndex, howManyDeleted, itemInserted) {},
                     set: function (oval, nval, i, arr) {
                         if (i == k) {
                             console.log('set', i, nval);
                             _ext[eachExpr.iterator.val] = nval;
                         }
+                    },
+                    // push: function (v) {},
+                    unshift: function (v) {
+                        k++;
+                        _ext[eachExpr.iterator.key] = k;
+                    },
+                    // pop: function () {},
+                    shift: function () {
+                        if (k > 0) {
+                            k--;
+                            _ext[eachExpr.iterator.key] = k;
+                        }
+                    },
+                    splice: function (startIndex, howManyToDelete, itemToInsert) {
+                        if (howManyToDelete) {
+                            if (k >= startIndex + howManyToDelete) {
+                                k -= howManyToDelete;
+                                _ext[eachExpr.iterator.key] = k;
+                            }
+                        } else {
+                            var howManyItemsToInsert = Array.prototype.slice.call(arguments, 2).length;
+                            if (k >= startIndex) {
+                                k += howManyItemsToInsert;
+                                _ext[eachExpr.iterator.key] = k;
+                            }
+                        }
                     }
                 });
+
+                return $copy;
             }
 
-            Util.each($targetList, bindItem);
+            Util.each($targetList, function (v, i) {
+                $parent.appendChild(bindItem(v, i));
+            });
 
             $targetList.on({
-                push: function (v) {
-                    console.log('push', v, $targetList.length - 1);
-                    bindItem(v, $targetList.length - 1);
+                // set: function (oval, nval, i, arr) {},
+                resize: function () {
+                    if ($parent.nodeName.toLowerCase() === 'select') {
+                        $parent.dispatchEvent(new Event('change'));
+                    }
                 },
-                unshift: function (v) {},
-                pop: function () {},
-                shift: function () {},
-                splice: function (startIndex, howManyDeleted, itemInserted) {},
-                set: function (oval, nval, i, arr) {}
+                push: function (v) {
+                    $parent.appendChild(bindItem(v, $targetList.length - 1));
+                },
+                unshift: function (v) {
+                    $parent.insertBefore(bindItem(v, 0), $parent.childNodes[0]);
+                },
+                pop: function () {
+                    $parent.removeChild($parent.lastChild);
+                },
+                shift: function () {
+                    $parent.removeChild($parent.firstChild);
+                },
+                splice: function (startIndex, howManyToDelete, itemToInsert) {
+                    if (howManyToDelete) {
+                        for (; howManyToDelete > 0; howManyToDelete--) {
+                            $parent.removeChild($parent.childNodes[startIndex]);
+                        }
+                    } else {
+                        var itemsToInsert = Array.prototype.slice.call(arguments, 2);
+                        Util.each(itemsToInsert, function (v, i) {
+                            $parent.insertBefore(bindItem(v, startIndex + i), $parent.childNodes[startIndex + i]);
+                        });
+                    }
+                }
             });
 
             return;
         }
-        
+
         /* Bind child nodes recursively */
         Util.each($el, function (node) {
             Bind(node, ref, ext);
@@ -111,10 +159,11 @@ function Bind($el, ref, ext) {
                 return;
             }
 
-            if (domValueToBind[$el.nodeName.toLowerCase()] && name === 'value') { /* Two-way binding */
+            if (domValueToBind[nodeName] && name === 'value') { /* Two-way binding */
                 var valueProp = Parser.conf.refBeginsWithDollar ? value.substr(1) : value;
                 var valueTarget = Util.seekTarget(valueProp, ext, ref);
-                Util.addEvent($el, 'input', function (e) {
+                Util.addEvent($el, domValueToBind[nodeName], function (e) {
+                    console.log('input change');
                     Data(valueTarget, valueProp, this.value);
                 }, false);
             }

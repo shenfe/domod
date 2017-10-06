@@ -30,11 +30,15 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return v != null && Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && !(v instanceof Array) && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
     return Object.prototype.toString.call(v) === '[object Array]';
+};
+
+var isLikeArray = function (v) {
+    return v instanceof Array;
 };
 
 var isBasic = function (v) {
@@ -66,14 +70,14 @@ var isEventName = function (v) {
 var each = function (v, func, arrayReverse) {
     var i;
     var len;
-    if (isObject(v) && isFunction(v.forEach)) {
+    if (!isArray(v) && isFunction(v.forEach)) {
         v.forEach(func);
     } else if (isObject(v)) {
         for (var p in v) {
             if (!v.hasOwnProperty(p)) continue;
             if (func(v[p], p) === false) break;
         }
-    } else if (isArray(v)) {
+    } else if (isLikeArray(v)) {
         if (!arrayReverse) {
             for (i = 0, len = v.length; i < len; i++) {
                 if (func(v[i], i) === false) break;
@@ -117,8 +121,8 @@ var clone = function (val) {
         each(val, function (v, p) {
             r[p] = clone(v);
         });
-    } else if (isArray(val)) {
-        r = [];
+    } else if (isLikeArray(val)) {
+        r = new val.constructor();
         each(val, function (v) {
             r.push(clone(v));
         });
@@ -129,7 +133,7 @@ var clone = function (val) {
 var hasProperty = function (val, p) {
     if (isObject(val)) {
         return val.hasOwnProperty(p);
-    } else if (isArray(val)) {
+    } else if (isLikeArray(val)) {
         var n = parseInt(p);
         return isNumeric(p) && val.length > n && n >= 0;
     }
@@ -140,11 +144,11 @@ var clear = function (val, p, withBasicVal) {
     var inRef = isString(p) || isNumber(p);
     var target = inRef ? val[p] : val;
 
-    if (isObject(target) || isArray(target)) {
+    if (isObject(target) || isLikeArray(target)) {
         each(target, function (v, p) {
             clear(target, p);
         });
-        if (isArray(target)) {
+        if (isLikeArray(target)) {
             shrinkArray(target);
         }
     }
@@ -158,11 +162,11 @@ var shrinkArray = function (arr, len) {
     var limited = isNumber(len);
     if (!limited) {
         each(arr, function (v, i) {
-            if (v === undefined) arr.length--;
+            if (v == null) arr.pop();
         }, true);
     } else {
         each(arr, function (v, i) {
-            if (i >= len) arr.length--;
+            if (i >= len) arr.pop();
             else return false;
         }, true);
         while (arr.length < len) {
@@ -190,7 +194,14 @@ var extend = function (dest, srcs, clean, handler) {
     args = Array.prototype.slice.call(arguments, 1, arguments.length - argOffset);
 
     function extendObj(obj, src, clean) {
-        if (!isObject(src)) return src;
+        if (!isObject(src) && !isLikeArray(src)) return src;
+        if (isLikeArray(src)) {
+            if (!isLikeArray(obj)) return clone(src);
+            else {
+                obj.splice.apply(obj, [0, obj.length].concat(src));
+                return obj;
+            }
+        }
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
                 if (obj[p] !== v) {
@@ -206,9 +217,6 @@ var extend = function (dest, srcs, clean, handler) {
                     clear(obj, p);
                 }
             });
-            if (isArray(obj)) {
-                shrinkArray(obj);
-            }
         }
         return obj;
     }
@@ -220,7 +228,7 @@ var extend = function (dest, srcs, clean, handler) {
 };
 
 var allRefs = function (obj) {
-    if (obj instanceof Array) return [];
+    if (isLikeArray(obj)) return [];
     var refs = [];
     each(obj, function (v, p) {
         refs.push(p);
@@ -329,7 +337,7 @@ function OArray(arr, option) {
 
     var _this = this;
 
-    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice', 'resize'];
     eventNames.forEach(function (e) {
         defineProperty$1(_this, 'on' + e, { value: [] });
     });
@@ -421,6 +429,7 @@ OArray.prototype.deleteElement = function () {
         this.__data[f](v);
         this.assignElement(this.length - 1);
         this.dispatchEvent(f, v);
+        this.dispatchEvent('resize');
     };
 });
 ['pop', 'shift'].forEach(function (f) {
@@ -428,6 +437,7 @@ OArray.prototype.deleteElement = function () {
         this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
         this.deleteElement();
         this.__data[f]();
+        this.dispatchEvent('resize');
     };
 });
 
@@ -465,6 +475,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
         Array.prototype.splice.apply(this.__data, args);
     }
     this.dispatchEvent.apply(this, ['splice'].concat(args));
+    this.dispatchEvent('resize');
 };
 
 OArray.prototype.forEach = function (fn) {
@@ -490,6 +501,17 @@ OArray.prototype.forEach = function (fn) {
         return Array.prototype[f].apply(this.toArray(), arguments);
     };
 });
+
+OArray.prototype.clear = function () {
+    while (this.length) {
+        this.pop();
+    }
+    return this;
+};
+
+OArray.prototype.cast = function (arr) {
+    return this.splice.apply(this, [0, this.length].concat(arr));
+};
 
 var Store = {};
 var Dnstreams = {};
@@ -638,7 +660,7 @@ function Kernel(root, path, relations) {
             set: function (val, force) {
                 if (!force && val === value) return;
                 if (val !== value) {
-                    if (isInstance(obj.target, OArray) && 
+                    if (isInstance(obj.target, OArray) &&
                         !(isObject(value) && isObject(val))) {
                         obj.target.set(obj.property, val);
                         value = obj.target[obj.property];
@@ -771,7 +793,7 @@ function Data(root, refPath, value) {
         p = paths.shift();
         proppath += (proppath === '' ? '' : '.') + p;
         if (toSet && paths.length === 0) { /* set */ // TODO
-            if (isInstance(v, OArray) && 
+            if (isInstance(v, OArray) &&
                 !(isObject(v[p]) && isObject(value))) {
                 v.set(p, value);
             } else {
@@ -794,6 +816,9 @@ var conf$1 = {
     attrsFlag: 'attrs.'
 };
 
+/**
+ * DOM attribute names to bind.
+ */
 var domProp = {
     'value': 'value',
     'checked': 'checked',
@@ -807,7 +832,6 @@ var domProp = {
  * Regular expressions.
  */
 var Regs = {
-    assign1: /(\$[a-zA-Z$_][0-9a-zA-Z$_]*)\s*=[^=]/g,
     each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
     each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
     each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
@@ -819,10 +843,11 @@ var Regs = {
  * @param {String} expr 
  * @param {Array} refs 
  * @param {*} target 
+ * @return {*}
  */
 function executeFunctionWithScope(expr, refs, target) {
     if (conf$1.refBeginsWithDollar) {
-        expr = expr.replace(Regs.assign1, function (match, p1) {
+        expr = expr.replace(/(\$[a-zA-Z$_][0-9a-zA-Z$_]*)\s*=[^=]/g, function (match, p1) {
             return match.replace(p1, 'this.' + p1.substr(1));
         });
     }
@@ -833,7 +858,7 @@ function executeFunctionWithScope(expr, refs, target) {
         refs = [refs];
         if (!target) target = refs[0];
     }
-    
+
     var ref = {};
     each(refs, function (r) {
         each(r, function (v, p) {
@@ -927,6 +952,7 @@ function parseRefsInExpr(expr) {
  * Parse `each` template expression from an attribute value string.
  * @param {String} expr 
  * @param {Array} refs
+ * @return {Object}
  */
 function parseEachExpr(expr, refs) {
     var valStr;
@@ -1088,8 +1114,8 @@ var conf = {
 };
 
 var domValueToBind = {
-    'input': true,
-    'select': true
+    'input': 'input',
+    'select': 'change'
 };
 
 /**
@@ -1104,6 +1130,8 @@ function Bind($el, ref, ext) {
     ext = ext ? (isArray(ext) ? ext : [ext]) : []; /* Ensure `ext` is an array */
     var scopes = ext.concat(ref);
 
+    var nodeName = $el.nodeName.toLowerCase();
+
     if ($el.nodeType === Node.ELEMENT_NODE && !$el[conf.domBoundFlag]) {
         $el[conf.domBoundFlag] = true; /* Set a binding flag. */
 
@@ -1114,7 +1142,8 @@ function Bind($el, ref, ext) {
             var eachExpr = parseEachExpr(eachExprText, ref);
             $el.removeAttribute(eachAttrName);
             var $parent = $el.parentNode;
-            $parent.removeChild($el);
+            // $parent.removeChild($el);
+            $parent.innerHTML = '';
 
             var $targetList = eachExpr.target;
 
@@ -1124,45 +1153,91 @@ function Bind($el, ref, ext) {
                 _ext[eachExpr.iterator.val] = v;
                 _ext[eachExpr.iterator.key] = k;
                 Bind($copy, ref, [_ext].concat(ext));
-                $parent.appendChild($copy);
 
                 $targetList.on({
-                    push: function (v) {},
-                    unshift: function (v) {},
-                    pop: function () {},
-                    shift: function () {},
-                    splice: function (startIndex, howManyDeleted, itemInserted) {},
                     set: function (oval, nval, i, arr) {
                         if (i == k) {
                             console.log('set', i, nval);
                             _ext[eachExpr.iterator.val] = nval;
                         }
+                    },
+                    // push: function (v) {},
+                    unshift: function (v) {
+                        k++;
+                        _ext[eachExpr.iterator.key] = k;
+                    },
+                    // pop: function () {},
+                    shift: function () {
+                        if (k > 0) {
+                            k--;
+                            _ext[eachExpr.iterator.key] = k;
+                        }
+                    },
+                    splice: function (startIndex, howManyToDelete, itemToInsert) {
+                        if (howManyToDelete) {
+                            if (k >= startIndex + howManyToDelete) {
+                                k -= howManyToDelete;
+                                _ext[eachExpr.iterator.key] = k;
+                            }
+                        } else {
+                            var howManyItemsToInsert = Array.prototype.slice.call(arguments, 2).length;
+                            if (k >= startIndex) {
+                                k += howManyItemsToInsert;
+                                _ext[eachExpr.iterator.key] = k;
+                            }
+                        }
                     }
                 });
+
+                return $copy;
             }
 
-            each($targetList, bindItem);
+            each($targetList, function (v, i) {
+                $parent.appendChild(bindItem(v, i));
+            });
 
             $targetList.on({
-                push: function (v) {
-                    console.log('push', v, $targetList.length - 1);
-                    bindItem(v, $targetList.length - 1);
+                // set: function (oval, nval, i, arr) {},
+                resize: function () {
+                    if ($parent.nodeName.toLowerCase() === 'select') {
+                        $parent.dispatchEvent(new Event('change'));
+                    }
                 },
-                unshift: function (v) {},
-                pop: function () {},
-                shift: function () {},
-                splice: function (startIndex, howManyDeleted, itemInserted) {},
-                set: function (oval, nval, i, arr) {}
+                push: function (v) {
+                    $parent.appendChild(bindItem(v, $targetList.length - 1));
+                },
+                unshift: function (v) {
+                    $parent.insertBefore(bindItem(v, 0), $parent.childNodes[0]);
+                },
+                pop: function () {
+                    $parent.removeChild($parent.lastChild);
+                },
+                shift: function () {
+                    $parent.removeChild($parent.firstChild);
+                },
+                splice: function (startIndex, howManyToDelete, itemToInsert) {
+                    if (howManyToDelete) {
+                        for (; howManyToDelete > 0; howManyToDelete--) {
+                            $parent.removeChild($parent.childNodes[startIndex]);
+                        }
+                    } else {
+                        var itemsToInsert = Array.prototype.slice.call(arguments, 2);
+                        each(itemsToInsert, function (v, i) {
+                            $parent.insertBefore(bindItem(v, startIndex + i), $parent.childNodes[startIndex + i]);
+                        });
+                    }
+                }
             });
 
             return;
         }
-        
+
         /* Bind child nodes recursively */
         each($el, function (node) {
             Bind(node, ref, ext);
         });
 
+        /* Bind attributes */
         var attrList = [];
         each($el.attributes, function (value, name) {
             if (!name.startsWith(conf$1.attrPrefix)) return;
@@ -1179,10 +1254,11 @@ function Bind($el, ref, ext) {
                 return;
             }
 
-            if (domValueToBind[$el.nodeName.toLowerCase()] && name === 'value') { /* Two-way binding */
+            if (domValueToBind[nodeName] && name === 'value') { /* Two-way binding */
                 var valueProp = conf$1.refBeginsWithDollar ? value.substr(1) : value;
                 var valueTarget = seekTarget(valueProp, ext, ref);
-                addEvent($el, 'input', function (e) {
+                addEvent($el, domValueToBind[nodeName], function (e) {
+                    console.log('input change');
                     Data(valueTarget, valueProp, this.value);
                 }, false);
             }
