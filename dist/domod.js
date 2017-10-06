@@ -1307,6 +1307,9 @@ function Bind($el, ref, ext) {
  * @param {*} ref 
  */
 var DMD = function ($el, ref) {
+    if (isString($el)) {
+        $el = window.document.querySelector($el);
+    }
     Bind.call(this, $el, ref);
 };
 

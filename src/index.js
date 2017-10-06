@@ -223,6 +223,9 @@ function Unbind($el, ref, relation) {
  * @param {*} ref 
  */
 var DMD = function ($el, ref) {
+    if (Util.isString($el)) {
+        $el = window.document.querySelector($el);
+    }
     Bind.call(this, $el, ref);
 };
 
