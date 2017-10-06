@@ -24,7 +24,7 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
     <div>
         <label>age:</label>
         <select name="age" m-value="$form.age.value">
-            <option m-each="($val, $key) in $form.age.options" m-value="$key">{{$val}}</option>
+            <option m-each="$val in $form.age.options" m-value="$val">{{$val}}</option>
         </select>
     </div>
     <div>
@@ -47,7 +47,7 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
             gender: 'female',
             mobile: '15210001000',
             age: {
-                value: '3',
+                value: '37-54',
                 options: [
                     '0-18',
                     '19-36',
