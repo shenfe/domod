@@ -12,14 +12,21 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
 <form id="form1">
     <div>
         <label>gender:</label>
-        <input m-onclick="$form.gender = 'male'" type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
-        <input m-onclick="$form.gender = 'female'" type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
+        <input m-onclick="$form.gender = 'male'" 
+               type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
+        <input m-onclick="$form.gender = 'female'" 
+               type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
     </div>
     <div>
         <label>mobile:</label>
         <input type="text" name="mobile" m-value="$form.mobile">
-        <span m-style="{ display: !!$form.mobile ? 'inline' : 'none' }">You input: {{$parse($form.mobile)}}.</span>
-        <span m-class="['some-class', { red: !$mobileInputStatus }]" m-style="{ display: !$mobileInputStatus ? 'inline' : 'none' }">{{$form.mobile}} is {{$mobileInputStatus}}!</span>
+        <span m-style="{ display: !!$form.mobile ? 'inline' : 'none' }">
+            You input: {{$parse($form.mobile)}}.
+        </span>
+        <span m-class="['some-class', { red: !$mobileInputStatus }]" 
+              m-style="{ display: !$mobileInputStatus ? 'inline' : 'none' }">
+            {{$form.mobile}} is {{$mobileInputStatus}}!
+        </span>
     </div>
     <div>
         <label>age:</label>
@@ -30,7 +37,9 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
     <div>
         <label>city:</label>
         <select name="city" m-value="$form.city.value">
-            <option m-each="($val, $key) in $form.city.options" m-value="$key">{{$val.code}}.{{$val.name}}</option>
+            <option m-each="($val, $key) in $form.city.options" m-value="$key">
+                {{$val.code}}.{{$val.name}}
+            </option>
         </select>
     </div>
 </form>
