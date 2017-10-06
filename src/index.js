@@ -94,6 +94,7 @@ function Bind($el, ref, ext) {
             Bind(node, ref, ext);
         });
 
+        /* Bind attributes */
         var attrList = [];
         Util.each($el.attributes, function (value, name) {
             if (!name.startsWith(Parser.conf.attrPrefix)) return;

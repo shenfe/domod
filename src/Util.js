@@ -28,11 +28,15 @@ var isFunction = function (v) {
 };
 
 var isObject = function (v) {
-    return v != null && Object.prototype.toString.call(v) === '[object Object]';
+    return v != null && !(v instanceof Array) && Object.prototype.toString.call(v) === '[object Object]';
 };
 
 var isArray = function (v) {
     return Object.prototype.toString.call(v) === '[object Array]';
+};
+
+var isLikeArray = function (v) {
+    return v instanceof Array;
 };
 
 var isBasic = function (v) {
@@ -158,8 +162,8 @@ var clone = function (val) {
         each(val, function (v, p) {
             r[p] = clone(v);
         });
-    } else if (isArray(val)) {
-        r = [];
+    } else if (isLikeArray(val)) {
+        r = new val.constructor();
         each(val, function (v) {
             r.push(clone(v));
         });
@@ -241,7 +245,14 @@ var extend = function (dest, srcs, clean, handler) {
     args = Array.prototype.slice.call(arguments, 1, arguments.length - argOffset);
 
     function extendObj(obj, src, clean) {
-        if (!isObject(src)) return src;
+        if (!isObject(src) && !isLikeArray(src)) return src;
+        if (isLikeArray(src)) {
+            if (!isLikeArray(obj)) return clone(src);
+            else {
+                obj.splice.apply(obj, [0, obj.length].concat(src));
+                return obj;
+            }
+        }
         each(src, function (v, p) {
             if (!hasProperty(obj, p) || isBasic(v)) {
                 if (obj[p] !== v) {
@@ -257,9 +268,6 @@ var extend = function (dest, srcs, clean, handler) {
                     clear(obj, p);
                 }
             });
-            if (isArray(obj)) {
-                shrinkArray(obj);
-            }
         }
         return obj;
     }
@@ -384,6 +392,7 @@ export {
     isFunction,
     isObject,
     isArray,
+    isLikeArray,
     isBasic,
     isInstance,
     isDirectInstance,

@@ -194,4 +194,19 @@ OArray.prototype.forEach = function (fn) {
     };
 });
 
+OArray.prototype.scale = function (size) {
+    while (this.length > size) {
+        this.pop();
+    }
+    return this;
+};
+
+OArray.prototype.clear = function () {
+    return this.scale(0);
+};
+
+OArray.prototype.cast = function (arr) {
+    return this.splice.apply(this, [0, this.length].concat(arr));
+};
+
 export default OArray
