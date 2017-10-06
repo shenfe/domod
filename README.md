@@ -2,27 +2,95 @@
 
 ![gzipped](http://img.badgesize.io/https://raw.githubusercontent.com/shenfe/domod/master/dist/domod.min.js?compression=gzip)
 
-A super lightweight data-binding (or so-called mvvm) library, providing both **declarative template** and **imperative call** ways.
+A lightweight data-binding (or so-called mvvm) library, providing both **declarative template** and **imperative call** ways.
 
 ## API
 
 ```html
 <script src="path/to/domod.js" charset="utf-8"></script>
 
-<input id="input1" type="text" m-value="$value">
-<div id="div1"
-    m-class="['some-class', { 'red-color': $color === 'red' }]"
-    m-style="{ display: !!$value ? 'block' : 'none' }">
-    You input: {{$value}}
-</div>
+<form id="form1">
+    <div>
+        <label>gender:</label>
+        <input m-onclick="$form.gender = 'male'" 
+               type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
+        <input m-onclick="$form.gender = 'female'" 
+               type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
+    </div>
+    <div>
+        <label>mobile:</label>
+        <input type="text" name="mobile" m-value="$form.mobile">
+        <span m-style="{ display: !!$form.mobile ? 'inline' : 'none' }">
+            You input: {{$parse($form.mobile)}}.
+        </span>
+        <span m-class="['some-class', { red: !$mobileInputStatus }]" 
+              m-style="{ display: !$mobileInputStatus ? 'inline' : 'none' }">
+            {{$form.mobile}} is {{$mobileInputStatus}}!
+        </span>
+    </div>
+    <div>
+        <label>age:</label>
+        <select name="age" m-value="$form.age.value">
+            <option m-each="$val in $form.age.options" m-value="$val">{{$val}}</option>
+        </select>
+    </div>
+    <div>
+        <label>city:</label>
+        <select name="city" m-value="$form.city.value">
+            <option m-each="($val, $key) in $form.city.options" m-value="$key">
+                {{$val.code}}.{{$val.name}}
+            </option>
+        </select>
+    </div>
+</form>
 
 <script>
     var store = {
-        value: '1',
-        color: 'green'
+        parse: function (v) {
+            return parseInt(v);
+        },
+        validateMobile: function () {
+            return /^1[3|4|5|8][0-9]\d{8}$/.test(this.form.mobile);
+        },
+        form: {
+            gender: 'female',
+            mobile: '15210001000',
+            age: {
+                value: '37-54',
+                options: [
+                    '0-18',
+                    '19-36',
+                    '37-54',
+                    '55-200'
+                ]
+            },
+            city: {
+                value: '1',
+                options: [
+                    { code: 1, name: 'beijing' },
+                    { code: 2, name: 'newyork' },
+                    { code: 3, name: 'tokyo' },
+                    { code: 4, name: 'london' },
+                    { code: 5, name: 'paris' }
+                ]
+            }
+        }
     };
-    domod(document.getElementById('input1'), store);
-    domod(document.getElementById('div1'), store);
+
+    /* Watch a property mutation */
+    store.mobileInputStatus = store.validateMobile();
+    DMD.relate(store, {
+        'form.mobile': {
+            dnstream: 'mobileInputStatus',
+            resultIn: function (v) {
+                var newVal = store.validateMobile();
+                console.log(`mobile is ${newVal}`);
+                DMD.$(store, 'mobileInputStatus', newVal);
+            }
+        }
+    });
+
+    DMD('#form1', store);
 </script>
 ```
 
