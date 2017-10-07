@@ -270,7 +270,7 @@ function OArray(arr, option) {
 
     var _this = this;
 
-    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice', 'resize'];
     eventNames.forEach(function (e) {
         defineProperty$1(_this, 'on' + e, { value: [] });
     });
@@ -362,6 +362,7 @@ OArray.prototype.deleteElement = function () {
         this.__data[f](v);
         this.assignElement(this.length - 1);
         this.dispatchEvent(f, v);
+        this.dispatchEvent('resize');
     };
 });
 ['pop', 'shift'].forEach(function (f) {
@@ -369,6 +370,7 @@ OArray.prototype.deleteElement = function () {
         this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
         this.deleteElement();
         this.__data[f]();
+        this.dispatchEvent('resize');
     };
 });
 
@@ -406,6 +408,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
         Array.prototype.splice.apply(this.__data, args);
     }
     this.dispatchEvent.apply(this, ['splice'].concat(args));
+    this.dispatchEvent('resize');
 };
 
 OArray.prototype.forEach = function (fn) {
@@ -452,6 +455,7 @@ var Laziness = {};
 var PropKernelTable = {};
 var KernelStatus = {};
 var GetterSetter = {};
+var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {
     if (!isNode(target)) {
@@ -470,14 +474,14 @@ function defineProperty(target, prop, desc, proppath) {
         if ('value' in desc) {
             target[prop] = desc.value;
         }
-        proppath = proppath || fullpathOf(prop, target);
-        if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
-        if ('get' in desc) {
-            GetterSetter[proppath].get = desc.get;
-        }
-        if ('set' in desc) {
-            GetterSetter[proppath].set = desc.set;
-        }
+    }
+    proppath = proppath || fullpathOf(prop, target);
+    if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
+    if ('get' in desc) {
+        GetterSetter[proppath].get = desc.get;
+    }
+    if ('set' in desc) {
+        GetterSetter[proppath].set = desc.set;
     }
 }
 
@@ -582,8 +586,9 @@ function Kernel(root, path, relations) {
                         null,
                         ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
                     );
-                    Data(null, proppath, v);
-                    value = v;
+                    if (value !== v) {
+                        GetterSetter[proppath].set(v);
+                    }
                 }
                 return value;
             },
@@ -700,40 +705,52 @@ function scopeOf(ref, root) {
     if ((!isObject(root) && !isNode(root)) || !isString(ref)) return null;
     var fullpath = fullpathOf(ref, root);
     var lastDot = fullpath.lastIndexOf('.');
+    var targetPath = fullpath.substring(0, lastDot);
+    var propPath = fullpath.substring(lastDot + 1);
+    var targetValue = Data(null, targetPath, __, true);
+    if (targetValue == null) {
+        targetValue = Data(null, targetPath, {}, true);
+    }
     return {
-        target: Data(null, fullpath.substring(0, lastDot)),
-        property: fullpath.substring(lastDot + 1)
+        target: targetValue,
+        property: propPath
     };
 }
 
 /**
  * Get or set data, and trigger getters or setters.
  */
-function Data(root, refPath, value) {
+function Data(root, refPath, value, ensurePathValid) {
     root = root || Store;
-    var toSet = arguments.length >= 3;
+    var toSet = arguments.length >= 3 && value !== __;
     var v = root;
     var proppath = fullpathOf(null, root);
     var paths = [];
     if (refPath) paths = refPath.split('.');
-    var p;
+    var parent;
+    var prop;
 
     while (paths.length) {
-        if (isBasic(v)) return undefined;
-        p = paths.shift();
-        proppath += (proppath === '' ? '' : '.') + p;
-        if (toSet && paths.length === 0) { /* set */ // TODO
+        if (ensurePathValid && v == null) {
+            parent[prop] = {};
+        } else if (isBasic(v)) {
+            return undefined;
+        }
+        prop = paths.shift();
+        proppath += (proppath === '' ? '' : '.') + prop;
+        if (toSet && paths.length === 0) { /* set */
             if (isInstance(v, OArray) &&
-                !(isObject(v[p]) && isObject(value))) {
-                v.set(p, value);
+                !(isObject(v[prop]) && isObject(value))) {
+                v.set(prop, value);
             } else {
-                v[p] = extend(v[p], value);
+                v[prop] = extend(v[prop], value);
             }
         } else { /* get */
-            v = v[p];
+            parent = v;
+            v = v[prop];
         }
     }
-    return toSet ? v[p] : v;
+    return toSet ? v[prop] : v;
 }
 
 exports.Kernel = Kernel;

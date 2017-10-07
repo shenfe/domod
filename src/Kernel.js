@@ -29,14 +29,14 @@ function defineProperty(target, prop, desc, proppath) {
         if ('value' in desc) {
             target[prop] = desc.value;
         }
-        proppath = proppath || fullpathOf(prop, target);
-        if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
-        if ('get' in desc) {
-            GetterSetter[proppath].get = desc.get;
-        }
-        if ('set' in desc) {
-            GetterSetter[proppath].set = desc.set;
-        }
+    }
+    proppath = proppath || fullpathOf(prop, target);
+    if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
+    if ('get' in desc) {
+        GetterSetter[proppath].get = desc.get;
+    }
+    if ('set' in desc) {
+        GetterSetter[proppath].set = desc.set;
     }
 }
 
@@ -141,8 +141,9 @@ function Kernel(root, path, relations) {
                         null,
                         ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
                     );
-                    Data(null, proppath, v);
-                    value = v;
+                    if (value !== v) {
+                        GetterSetter[proppath].set(v);
+                    }
                 }
                 return value;
             },

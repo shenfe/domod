@@ -88,7 +88,7 @@
                 }
             };
 
-            /* Declare a computed property: */
+            /* Way 1: Declare a computed property: */
             // DMD.relate(store, {
             //     mobileInputStatus: {
             //         upstream: 'form.mobile',
@@ -100,7 +100,7 @@
             //     }
             // });
 
-            /* Watch a property mutation */
+            /* Way 2: Watch a property mutation */
             store.mobileInputStatus = store.validateMobile();
             DMD.relate(store, {
                 'form.mobile': {
