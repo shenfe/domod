@@ -10,6 +10,7 @@ var Laziness = {};
 var PropKernelTable = {};
 var KernelStatus = {};
 var GetterSetter = {};
+var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {
     if (!Util.isNode(target)) {
@@ -258,9 +259,15 @@ function scopeOf(ref, root) {
     if ((!Util.isObject(root) && !Util.isNode(root)) || !Util.isString(ref)) return null;
     var fullpath = fullpathOf(ref, root);
     var lastDot = fullpath.lastIndexOf('.');
+    var targetPath = fullpath.substring(0, lastDot);
+    var propPath = fullpath.substring(lastDot + 1);
+    var targetValue = Data(null, targetPath, __, true);
+    if (targetValue == null) {
+        targetValue = Data(null, targetPath, {}, true);
+    }
     return {
-        target: Data(null, fullpath.substring(0, lastDot)),
-        property: fullpath.substring(lastDot + 1)
+        target: targetValue,
+        property: propPath
     };
 }
 
@@ -279,31 +286,37 @@ function assign(proppath, src, obj) {
 /**
  * Get or set data, and trigger getters or setters.
  */
-function Data(root, refPath, value) {
+function Data(root, refPath, value, ensurePathValid) {
     root = root || Store;
-    var toSet = arguments.length >= 3;
+    var toSet = arguments.length >= 3 && value !== __;
     var v = root;
     var proppath = fullpathOf(null, root);
     var paths = [];
     if (refPath) paths = refPath.split('.');
-    var p;
+    var parent;
+    var prop;
 
     while (paths.length) {
-        if (Util.isBasic(v)) return undefined;
-        p = paths.shift();
-        proppath += (proppath === '' ? '' : '.') + p;
-        if (toSet && paths.length === 0) { /* set */ // TODO
+        if (ensurePathValid && v == null) {
+            parent[prop] = {};
+        } else if (Util.isBasic(v)) {
+            return undefined;
+        }
+        prop = paths.shift();
+        proppath += (proppath === '' ? '' : '.') + prop;
+        if (toSet && paths.length === 0) { /* set */
             if (Util.isInstance(v, OArray) &&
-                !(Util.isObject(v[p]) && Util.isObject(value))) {
-                v.set(p, value);
+                !(Util.isObject(v[prop]) && Util.isObject(value))) {
+                v.set(prop, value);
             } else {
-                v[p] = Util.extend(v[p], value);
+                v[prop] = Util.extend(v[prop], value);
             }
         } else { /* get */
-            v = v[p];
+            parent = v;
+            v = v[prop];
         }
     }
-    return toSet ? v[p] : v;
+    return toSet ? v[prop] : v;
 }
 
 export { Kernel, Relate, Data }

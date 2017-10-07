@@ -26,6 +26,10 @@
     <body>
         <form>
             <div>
+                <label>name:</label>
+                <span>{{$names ? $names.realName : 'unknown'}}</span>
+            </div>
+            <div>
                 <label>gender:</label>
                 <input m-onclick="$form.gender = 'male'" type="radio" name="gender" value="male" m-checked="$form.gender === 'male'">Male
                 <input m-onclick="$form.gender = 'female'" type="radio" name="gender" value="female" m-checked="$form.gender === 'female'">Female
@@ -104,10 +108,17 @@
                     resultIn: function (v) {
                         var newVal = store.validateMobile();
                         console.log(`mobile is ${newVal}`);
-                        DMD.$(store, 'mobileInputStatus', newVal);
+                        // DMD.$(store, 'mobileInputStatus', newVal);
+                        store.mobileInputStatus = newVal;
                     }
                 }
             });
+
+            window.setTimeout(function () {
+                store.names = {
+                    realName: 'Colin'
+                };
+            }, 2000);
 
             DMD(document.body, store);
         </script>
