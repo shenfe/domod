@@ -1,6 +1,4 @@
-<p align="center"><img width="80"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
-
-# domod
+<p align="center"><img width="212"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
 
 ![gzipped](http://img.badgesize.io/https://raw.githubusercontent.com/shenfe/domod/master/dist/domod.min.js?compression=gzip)
 
