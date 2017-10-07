@@ -27,6 +27,10 @@ var oarr = new OArray(arr, {
 
 这四个事件处理函数都接收一个参数。push和unshift处理已被添加的元素值；pop和shift处理将被删除的元素值。
 
+### resize
+
+resize事件发生在数组长度发生变化时。resize事件处理函数不接收参数。
+
 ### splice
 
 splice事件处理函数接收的参数与数组的splice方法接收的参数类似，但更为简单，分两种情况：
