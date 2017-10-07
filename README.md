@@ -4,6 +4,8 @@
 
 A lightweight data-binding (or so-called mvvm) library, providing both **declarative template** and **imperative call** ways.
 
+*"domod" is named from "DOM", "Model" and their two-way relationship.*
+
 ## API
 
 ```html
