@@ -1,21 +1,46 @@
 {
-    "scripts": {
-        "build:OArray": "./node_modules/.bin/rollup -c ./build/rollup-OArray.config.js",
-        "build:Kernel": "./node_modules/.bin/rollup -c ./build/rollup-Kernel.config.js",
-        "build:min": "./node_modules/.bin/rollup -c ./build/rollup-min.config.js",
-        "build": "./node_modules/.bin/rollup -c ./build/rollup.config.js",
-        "dev": "./node_modules/.bin/rollup -w -c ./build/rollup.config.js",
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "devDependencies": {
-        "eslint": "^4.7.2",
-        "eslint-config-standard": "^10.2.1",
-        "eslint-plugin-import": "^2.7.0",
-        "eslint-plugin-node": "^5.1.1",
-        "eslint-plugin-promise": "^3.5.0",
-        "eslint-plugin-standard": "^3.0.1",
-        "rollup": "^0.46.0",
-        "rollup-plugin-uglify": "^2.0.1",
-        "source-map-support": "^0.4.15"
-    }
+  "scripts": {
+    "build:OArray": "rollup -c ./build/rollup-OArray.config.js",
+    "build:Kernel": "rollup -c ./build/rollup-Kernel.config.js",
+    "build:min": "rollup -c ./build/rollup-min.config.js",
+    "build": "rollup -c ./build/rollup.config.js",
+    "dev": "rollup -w -c ./build/rollup.config.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "eslint": "^4.7.2",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-node": "^5.1.1",
+    "eslint-plugin-promise": "^3.5.0",
+    "eslint-plugin-standard": "^3.0.1",
+    "rollup": "^0.46.0",
+    "rollup-plugin-uglify": "^2.0.1",
+    "source-map-support": "^0.4.15"
+  },
+  "name": "domod",
+  "description": "A lightweight data-binding (or so-called mvvm) library, providing both declarative template and imperative call ways.",
+  "version": "0.1.0",
+  "main": "src/index.js",
+  "directories": {
+    "doc": "doc",
+    "test": "test"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shenfe/domod.git"
+  },
+  "keywords": [
+    "data-binding",
+    "mvvm",
+    "reactive",
+    "template"
+  ],
+  "author": "hengwu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shenfe/domod/issues"
+  },
+  "homepage": "https://github.com/shenfe/domod#readme"
 }
