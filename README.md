@@ -2,7 +2,7 @@
 
 ![gzipped](http://img.badgesize.io/https://raw.githubusercontent.com/shenfe/domod/master/dist/domod.min.js?compression=gzip)
 <a href="https://circleci.com/gh/shenfe/domod/tree/master"><img  src="https://img.shields.io/circleci/project/shenfe/domod/master.svg"></a>
-![npm](https://img.shields.io/npm/v/domod.svg)
+<a href="https://www.npmjs.com/package/domod"><img src="https://img.shields.io/npm/v/domod.svg"></a>
 ![license](https://img.shields.io/npm/l/domod.svg)
 
 A lightweight data-binding (or so-called mvvm) library, providing both **declarative template** and **imperative call** ways.
