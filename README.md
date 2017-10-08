@@ -1,7 +1,7 @@
 <p align="center"><img width="190"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
 
 ![gzipped](http://img.badgesize.io/https://raw.githubusercontent.com/shenfe/domod/master/dist/domod.min.js?compression=gzip)
-![circleci](https://img.shields.io/circleci/project/shenfe/domod/master.svg)
+<a href="https://circleci.com/gh/shenfe/domod/tree/master"><img  src="https://img.shields.io/circleci/project/shenfe/domod/master.svg"></a>
 ![npm](https://img.shields.io/npm/v/domod.svg)
 ![license](https://img.shields.io/npm/l/domod.svg)
 
