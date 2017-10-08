@@ -14,7 +14,7 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "package.json" }}
 
-      - run: rm package-lock.json
+      - run: [ -f package-lock.json ] && rm package-lock.json
       - run: npm install
 
       - save_cache:
