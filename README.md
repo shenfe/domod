@@ -1,4 +1,4 @@
-<p align="center"><img width="80"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
+<p align="center"><img width="190"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
 
 # domod
 
