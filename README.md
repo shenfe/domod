@@ -1,10 +1,10 @@
 <p align="center"><img width="190"src="https://raw.githubusercontent.com/shenfe/domod/master/readme_assets/logo.png"></p>
 
-# domod
-
 ![gzipped](http://img.badgesize.io/https://raw.githubusercontent.com/shenfe/domod/master/dist/domod.min.js?compression=gzip)
 
 A lightweight data-binding (or so-called mvvm) library, providing both **declarative template** and **imperative call** ways.
+
+*"domod" is named from "DOM", "Model" and their two-way relationship.*
 
 ## API
 
