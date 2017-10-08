@@ -16,7 +16,9 @@ jobs:
 
       - run:
           command: |
-              [ -f package-lock.json ] && rm package-lock.json
+              if [[ -f package-lock.json ]]; then
+                  rm package-lock.json
+              fi
       - run: npm install
 
       - save_cache:
