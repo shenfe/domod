@@ -11,6 +11,10 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
 
 ## API
 
+An online [demo](http://hengwu.me/repos/domod/domod3.html).
+
+An example of a simple form:
+
 ```html
 <script src="path/to/domod.js" charset="utf-8"></script>
 
