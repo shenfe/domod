@@ -1,3 +1,4 @@
+import './Polyfill'
 import * as Util from './Util'
 import { Kernel, Relate, Data } from './Kernel'
 import * as Parser from './Parser'
