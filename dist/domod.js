@@ -539,16 +539,17 @@ OArray.prototype.cast = function (arr) {
 };
 
 var GlobalNamespace = '_DMD_';
-window[GlobalNamespace] = window[GlobalNamespace] || {};
-var Store = window[GlobalNamespace]['Store'] = window[GlobalNamespace]['Store'] || {};
-var Dnstreams = window[GlobalNamespace]['Dnstreams'] = window[GlobalNamespace]['Dnstreams'] || {};
-var ResultsIn = window[GlobalNamespace]['ResultsIn'] = window[GlobalNamespace]['ResultsIn'] || {};
-var Upstreams = window[GlobalNamespace]['Upstreams'] = window[GlobalNamespace]['Upstreams'] || {};
-var ResultsFrom = window[GlobalNamespace]['ResultsFrom'] = window[GlobalNamespace]['ResultsFrom'] || {};
-var Laziness = window[GlobalNamespace]['Laziness'] = window[GlobalNamespace]['Laziness'] || {};
-var PropKernelTable = window[GlobalNamespace]['PropKernelTable'] = window[GlobalNamespace]['PropKernelTable'] || {};
-var KernelStatus = window[GlobalNamespace]['KernelStatus'] = window[GlobalNamespace]['KernelStatus'] || {};
-var GetterSetter = window[GlobalNamespace]['GetterSetter'] = window[GlobalNamespace]['GetterSetter'] || {};
+if (typeof window$1 !== 'object') var window$1 = {};
+window$1[GlobalNamespace] = window$1[GlobalNamespace] || {};
+var Store = window$1[GlobalNamespace]['Store'] = window$1[GlobalNamespace]['Store'] || {};
+var Dnstreams = window$1[GlobalNamespace]['Dnstreams'] = window$1[GlobalNamespace]['Dnstreams'] || {};
+var ResultsIn = window$1[GlobalNamespace]['ResultsIn'] = window$1[GlobalNamespace]['ResultsIn'] || {};
+var Upstreams = window$1[GlobalNamespace]['Upstreams'] = window$1[GlobalNamespace]['Upstreams'] || {};
+var ResultsFrom = window$1[GlobalNamespace]['ResultsFrom'] = window$1[GlobalNamespace]['ResultsFrom'] || {};
+var Laziness = window$1[GlobalNamespace]['Laziness'] = window$1[GlobalNamespace]['Laziness'] || {};
+var PropKernelTable = window$1[GlobalNamespace]['PropKernelTable'] = window$1[GlobalNamespace]['PropKernelTable'] || {};
+var KernelStatus = window$1[GlobalNamespace]['KernelStatus'] = window$1[GlobalNamespace]['KernelStatus'] || {};
+var GetterSetter = window$1[GlobalNamespace]['GetterSetter'] = window$1[GlobalNamespace]['GetterSetter'] || {};
 var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {

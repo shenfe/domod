@@ -1,4 +1,4 @@
-const OArray = require('../dist/ObservableArray.js')
+const OArray = require('../dist/OArray.js')
 
 let arr0 = [1, 2, 3, 4, 5]
 

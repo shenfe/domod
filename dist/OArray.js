@@ -88,6 +88,7 @@ var each = function (v, func, arrayReverse) {
         if (ret) return;
         var childNodes = v.childNodes;
         for (i = 0, len = childNodes.length; i < len; i++) {
+            if (!childNodes[i]) break;
             func(childNodes[i]);
             each(childNodes[i], func);
         }
@@ -241,7 +242,7 @@ function OArray(arr, option) {
 
     var _this = this;
 
-    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice'];
+    var eventNames = ['set', 'push', 'pop', 'unshift', 'shift', 'splice', 'resize'];
     eventNames.forEach(function (e) {
         defineProperty(_this, 'on' + e, { value: [] });
     });
@@ -333,6 +334,7 @@ OArray.prototype.deleteElement = function () {
         this.__data[f](v);
         this.assignElement(this.length - 1);
         this.dispatchEvent(f, v);
+        this.dispatchEvent('resize');
     };
 });
 ['pop', 'shift'].forEach(function (f) {
@@ -340,6 +342,7 @@ OArray.prototype.deleteElement = function () {
         this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
         this.deleteElement();
         this.__data[f]();
+        this.dispatchEvent('resize');
     };
 });
 
@@ -377,6 +380,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
         Array.prototype.splice.apply(this.__data, args);
     }
     this.dispatchEvent.apply(this, ['splice'].concat(args));
+    this.dispatchEvent('resize');
 };
 
 OArray.prototype.forEach = function (fn) {

@@ -2,6 +2,7 @@ import * as Util from './Util'
 import OArray from './OArray'
 
 var GlobalNamespace = '_DMD_';
+if (typeof window !== 'object') var window = {};
 window[GlobalNamespace] = window[GlobalNamespace] || {};
 var Store = window[GlobalNamespace]['Store'] = window[GlobalNamespace]['Store'] || {};
 var Dnstreams = window[GlobalNamespace]['Dnstreams'] = window[GlobalNamespace]['Dnstreams'] || {};

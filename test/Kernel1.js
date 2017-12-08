@@ -48,7 +48,7 @@ const obj4 = Relate({
         }
     },
     'grow': {
-        value: 'init',
+        value: 0,
         resultIn: n => {
             obj1.age += n
             obj2.age += n
