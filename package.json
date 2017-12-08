@@ -20,7 +20,7 @@
   },
   "name": "domod",
   "description": "A lightweight data-binding (or so-called mvvm) library, providing both declarative template and imperative call ways.",
-  "version": "0.1.9",
+  "version": "0.2.1",
   "main": "dist/domod.js",
   "directories": {
     "doc": "doc",

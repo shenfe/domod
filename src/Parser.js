@@ -134,13 +134,15 @@ function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
     if (conf.refBeginsWithDollar) {
+        expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1 + '$'; });
         reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg).map(function (r) {
+        return (expr.match(reg) || []).map(function (r) {
             return r.substr(1);
         });
     } else {
+        expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1; });
         reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg);
+        return expr.match(reg) || [];
     }
 }
 
