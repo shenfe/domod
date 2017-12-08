@@ -51,6 +51,14 @@ function joinPath(root, path) {
     return root + '.' + path;
 }
 
+function splitPath(path) {
+    return path
+        .replace(/"([0-9a-zA-Z$_]+)"/mg, function (p0, p1) { return p1; })
+        .replace(/'([0-9a-zA-Z$_]+)'/mg, function (p0, p1) { return p1; })
+        .replace(/\[([0-9a-zA-Z$_]+)\]/mg, function (p0, p1) { return '.' + p1; })
+        .split('.');
+}
+
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
     var pre = register(root);
@@ -92,6 +100,9 @@ function propKernelOrder(proppath) {
  * @constructor
  */
 function Kernel(root, path, relations) {
+    if (typeof path === 'string') {
+        path = splitPath(path).join('.');
+    }
     var obj = {};
     var value;
     obj = scopeOf(path, root);
@@ -101,7 +112,7 @@ function Kernel(root, path, relations) {
     var proppath;
     if (!obj.target['__proppath']) {
         defineProperty(obj.target, '__proppath', {
-            value: joinPath(register(root), path.split('.').slice(0, -1).join('.'))
+            value: joinPath(register(root), splitPath(path).slice(0, -1).join('.'))
         });
         proppath = joinPath(register(root), path);
     } else {
@@ -313,7 +324,7 @@ function Data(root, refPath, value, ensurePathValid) {
     var v = root;
     // var proppath = fullpathOf(null, root);
     var paths = [];
-    if (refPath) paths = refPath.split('.');
+    if (refPath) paths = splitPath(refPath);
     var parent;
     var prop;
 

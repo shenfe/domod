@@ -28,10 +28,10 @@ var domProp = {
  * Regular expressions.
  */
 var Regs = {
-    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
 };
 
 /**
@@ -133,16 +133,21 @@ function evaluateRawTextWithTmpl(text, refs) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
+    var transformNum = function (r) {
+        return r.replace(/\.([0-9]+)([^0-9a-zA-Z$_]?)/g, function (p0, p1, p2) {
+            return '[' + p1 + ']' + p2;
+        });
+    };
     if (conf.refBeginsWithDollar) {
         expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1 + '$'; });
-        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
         return (expr.match(reg) || []).map(function (r) {
             return r.substr(1);
-        });
+        }).map(transformNum);
     } else {
         expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1; });
-        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg) || [];
+        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return (expr.match(reg) || []).map(transformNum);
     }
 }
 

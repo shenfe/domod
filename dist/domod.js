@@ -588,6 +588,14 @@ function joinPath(root, path) {
     return root + '.' + path;
 }
 
+function splitPath(path) {
+    return path
+        .replace(/"([0-9a-zA-Z$_]+)"/mg, function (p0, p1) { return p1; })
+        .replace(/'([0-9a-zA-Z$_]+)'/mg, function (p0, p1) { return p1; })
+        .replace(/\[([0-9a-zA-Z$_]+)\]/mg, function (p0, p1) { return '.' + p1; })
+        .split('.');
+}
+
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
     var pre = register(root);
@@ -629,6 +637,9 @@ function propKernelOrder(proppath) {
  * @constructor
  */
 function Kernel(root, path, relations) {
+    if (typeof path === 'string') {
+        path = splitPath(path).join('.');
+    }
     var obj = {};
     var value;
     obj = scopeOf(path, root);
@@ -638,7 +649,7 @@ function Kernel(root, path, relations) {
     var proppath;
     if (!obj.target['__proppath']) {
         defineProperty(obj.target, '__proppath', {
-            value: joinPath(register(root), path.split('.').slice(0, -1).join('.'))
+            value: joinPath(register(root), splitPath(path).slice(0, -1).join('.'))
         });
         proppath = joinPath(register(root), path);
     } else {
@@ -838,7 +849,7 @@ function Data(root, refPath, value, ensurePathValid) {
     var v = root;
     // var proppath = fullpathOf(null, root);
     var paths = [];
-    if (refPath) paths = refPath.split('.');
+    if (refPath) paths = splitPath(refPath);
     var parent;
     var prop;
 
@@ -891,10 +902,10 @@ var domProp = {
  * Regular expressions.
  */
 var Regs = {
-    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
-    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
+    each11: /^\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each12: /^\s*\(\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(\$([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each21: /^\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/,
+    each22: /^\s*\(\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*,\s*(([a-zA-Z$_][0-9a-zA-Z$_]*))\s*\)\s+in\s+(([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*)\s*$/
 };
 
 /**
@@ -996,16 +1007,21 @@ function evaluateRawTextWithTmpl(text, refs) {
 function parseRefsInExpr(expr) {
     expr = ';' + expr + ';';
     var reg;
+    var transformNum = function (r) {
+        return r.replace(/\.([0-9]+)([^0-9a-zA-Z$_]?)/g, function (p0, p1, p2) {
+            return '[' + p1 + ']' + p2;
+        });
+    };
     if (conf$1.refBeginsWithDollar) {
         expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1 + '$'; });
-        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        reg = /\$([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
         return (expr.match(reg) || []).map(function (r) {
             return r.substr(1);
-        });
+        }).map(transformNum);
     } else {
         expr = expr.replace(/([^a-zA-Z0-9$_.])this\./mg, function (p0, p1) { return p1; });
-        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
-        return expr.match(reg) || [];
+        reg = /([a-zA-Z$_][0-9a-zA-Z$_]*)(\.[0-9a-zA-Z$_][0-9a-zA-Z$_]*)*/g;
+        return (expr.match(reg) || []).map(transformNum);
     }
 }
 
