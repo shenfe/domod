@@ -57,7 +57,7 @@ function Bind($el, ref, ext) {
                 var $copy = $el.cloneNode(true);
                 var _ext = {};
                 _ext[eachExpr.iterator.val] = v;
-                _ext[eachExpr.iterator.key] = k;
+                if (eachExpr.iterator.key) _ext[eachExpr.iterator.key] = k;
                 Bind($copy, ref, [_ext].concat(ext));
 
                 $targetList.on({

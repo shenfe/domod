@@ -1,15 +1,17 @@
 import * as Util from './Util'
 import OArray from './OArray'
 
-var Store = {};
-var Dnstreams = {};
-var ResultsIn = {};
-var Upstreams = {};
-var ResultsFrom = {};
-var Laziness = {};
-var PropKernelTable = {};
-var KernelStatus = {};
-var GetterSetter = {};
+var GlobalNamespace = '_DMD_';
+window[GlobalNamespace] = window[GlobalNamespace] || {};
+var Store = window[GlobalNamespace]['Store'] = window[GlobalNamespace]['Store'] || {};
+var Dnstreams = window[GlobalNamespace]['Dnstreams'] = window[GlobalNamespace]['Dnstreams'] || {};
+var ResultsIn = window[GlobalNamespace]['ResultsIn'] = window[GlobalNamespace]['ResultsIn'] || {};
+var Upstreams = window[GlobalNamespace]['Upstreams'] = window[GlobalNamespace]['Upstreams'] || {};
+var ResultsFrom = window[GlobalNamespace]['ResultsFrom'] = window[GlobalNamespace]['ResultsFrom'] || {};
+var Laziness = window[GlobalNamespace]['Laziness'] = window[GlobalNamespace]['Laziness'] || {};
+var PropKernelTable = window[GlobalNamespace]['PropKernelTable'] = window[GlobalNamespace]['PropKernelTable'] || {};
+var KernelStatus = window[GlobalNamespace]['KernelStatus'] = window[GlobalNamespace]['KernelStatus'] || {};
+var GetterSetter = window[GlobalNamespace]['GetterSetter'] = window[GlobalNamespace]['GetterSetter'] || {};
 var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {
@@ -30,6 +32,9 @@ function defineProperty(target, prop, desc, proppath) {
             target[prop] = desc.value;
         }
     }
+
+    if (proppath === false) return;
+
     proppath = proppath || fullpathOf(prop, target);
     if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
     if ('get' in desc) {
@@ -40,17 +45,23 @@ function defineProperty(target, prop, desc, proppath) {
     }
 }
 
+function joinPath(root, path) {
+    if (!path || path === '') return root;
+    if (!root || root === '') return path;
+    return root + '.' + path;
+}
+
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
     var pre = register(root);
     if (pre == null) return ref || '';
-    return pre + (ref ? ('.' + ref) : '');
+    return joinPath(pre, ref);
 }
 
 function register(root) {
     if (root === Store || (!Util.isObject(root) && !Util.isNode(root))) return null;
     if (!root.__kernel_root) {
-        var id = 'kr_' + Util.gid();
+        var id = 'kr_' + Util.uid();
         defineProperty(root, '__kernel_root', {
             value: id
         });
@@ -63,8 +74,8 @@ function formatStream(stream, root) {
     if (Util.isObject(stream) || Util.isString(stream)) stream = [stream];
     if (Util.isArray(stream)) {
         return stream.map(function (a) {
-            if (Util.isObject(a)) return register(a.root) + '.' + a.alias;
-            if (Util.isString(a)) return register(root) + '.' + a;
+            if (Util.isObject(a)) return joinPath(register(a.root), a.alias);
+            if (Util.isString(a)) return joinPath(register(root), a);
             return null;
         });
     }
@@ -87,11 +98,20 @@ function Kernel(root, path, relations) {
     if (obj == null) return;
     value = obj.target[obj.property];
 
-    var proppath = register(root) + '.' + path;
+    var proppath;
+    if (!obj.target['__proppath']) {
+        defineProperty(obj.target, '__proppath', {
+            value: joinPath(register(root), path.split('.').slice(0, -1).join('.'))
+        });
+        proppath = joinPath(register(root), path);
+    } else {
+        proppath = joinPath(obj.target['__proppath'], obj.property);
+    }
+
     var __kid = proppath + '#' + propKernelOrder(proppath);
     defineProperty(this, '__kid', {
         value: __kid
-    });
+    }, false);
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
@@ -275,7 +295,7 @@ function scopeOf(ref, root) {
 function assign(proppath, src, obj) {
     obj = obj || Data(null, proppath);
     Util.each(src, function (v, p) {
-        var pp = proppath + '.' + p;
+        var pp = joinPath(proppath, p);
         if (!Util.hasProperty(obj, p) || Util.isBasic(obj[p]) || Util.isBasic(v)) {
             Data(null, pp, Util.clone(v));
         } else {
@@ -291,7 +311,7 @@ function Data(root, refPath, value, ensurePathValid) {
     root = root || Store;
     var toSet = arguments.length >= 3 && value !== __;
     var v = root;
-    var proppath = fullpathOf(null, root);
+    // var proppath = fullpathOf(null, root);
     var paths = [];
     if (refPath) paths = refPath.split('.');
     var parent;
@@ -304,7 +324,7 @@ function Data(root, refPath, value, ensurePathValid) {
             return undefined;
         }
         prop = paths.shift();
-        proppath += (proppath === '' ? '' : '.') + prop;
+        // proppath += (proppath === '' ? '' : '.') + prop;
         if (toSet && paths.length === 0) { /* set */
             if (Util.isInstance(v, OArray) &&
                 !(Util.isObject(v[prop]) && Util.isObject(value))) {

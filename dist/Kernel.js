@@ -4,12 +4,9 @@
 	(factory((global.Kernel = {})));
 }(this, (function (exports) { 'use strict';
 
-var gid = (function () {
-    var n = 0;
-    return function () {
-        return n++;
-    };
-})();
+var uid = function () {
+    return new Date().getTime() * 10000 + Math.floor(Math.random() * 10000);
+};
 
 var isNumber = function (v) {
     return typeof v === 'number';
@@ -99,6 +96,7 @@ var each = function (v, func, arrayReverse) {
         if (ret) return;
         var childNodes = v.childNodes;
         for (i = 0, len = childNodes.length; i < len; i++) {
+            if (!childNodes[i]) break;
             func(childNodes[i]);
             each(childNodes[i], func);
         }
@@ -446,15 +444,17 @@ OArray.prototype.cast = function (arr) {
     return this.splice.apply(this, [0, this.length].concat(arr));
 };
 
-var Store = {};
-var Dnstreams = {};
-var ResultsIn = {};
-var Upstreams = {};
-var ResultsFrom = {};
-var Laziness = {};
-var PropKernelTable = {};
-var KernelStatus = {};
-var GetterSetter = {};
+var GlobalNamespace = '_DMD_';
+window[GlobalNamespace] = window[GlobalNamespace] || {};
+var Store = window[GlobalNamespace]['Store'] = window[GlobalNamespace]['Store'] || {};
+var Dnstreams = window[GlobalNamespace]['Dnstreams'] = window[GlobalNamespace]['Dnstreams'] || {};
+var ResultsIn = window[GlobalNamespace]['ResultsIn'] = window[GlobalNamespace]['ResultsIn'] || {};
+var Upstreams = window[GlobalNamespace]['Upstreams'] = window[GlobalNamespace]['Upstreams'] || {};
+var ResultsFrom = window[GlobalNamespace]['ResultsFrom'] = window[GlobalNamespace]['ResultsFrom'] || {};
+var Laziness = window[GlobalNamespace]['Laziness'] = window[GlobalNamespace]['Laziness'] || {};
+var PropKernelTable = window[GlobalNamespace]['PropKernelTable'] = window[GlobalNamespace]['PropKernelTable'] || {};
+var KernelStatus = window[GlobalNamespace]['KernelStatus'] = window[GlobalNamespace]['KernelStatus'] || {};
+var GetterSetter = window[GlobalNamespace]['GetterSetter'] = window[GlobalNamespace]['GetterSetter'] || {};
 var __ = {};
 
 function defineProperty(target, prop, desc, proppath) {
@@ -475,6 +475,9 @@ function defineProperty(target, prop, desc, proppath) {
             target[prop] = desc.value;
         }
     }
+
+    if (proppath === false) return;
+
     proppath = proppath || fullpathOf(prop, target);
     if (!GetterSetter[proppath] && ('get' in desc || 'set' in desc)) GetterSetter[proppath] = {};
     if ('get' in desc) {
@@ -485,17 +488,23 @@ function defineProperty(target, prop, desc, proppath) {
     }
 }
 
+function joinPath(root, path) {
+    if (!path || path === '') return root;
+    if (!root || root === '') return path;
+    return root + '.' + path;
+}
+
 function fullpathOf(ref, root) {
     if (root === undefined) return ref;
     var pre = register(root);
     if (pre == null) return ref || '';
-    return pre + (ref ? ('.' + ref) : '');
+    return joinPath(pre, ref);
 }
 
 function register(root) {
     if (root === Store || (!isObject(root) && !isNode(root))) return null;
     if (!root.__kernel_root) {
-        var id = 'kr_' + gid();
+        var id = 'kr_' + uid();
         defineProperty(root, '__kernel_root', {
             value: id
         });
@@ -508,8 +517,8 @@ function formatStream(stream, root) {
     if (isObject(stream) || isString(stream)) stream = [stream];
     if (isArray(stream)) {
         return stream.map(function (a) {
-            if (isObject(a)) return register(a.root) + '.' + a.alias;
-            if (isString(a)) return register(root) + '.' + a;
+            if (isObject(a)) return joinPath(register(a.root), a.alias);
+            if (isString(a)) return joinPath(register(root), a);
             return null;
         });
     }
@@ -532,11 +541,20 @@ function Kernel(root, path, relations) {
     if (obj == null) return;
     value = obj.target[obj.property];
 
-    var proppath = register(root) + '.' + path;
+    var proppath;
+    if (!obj.target['__proppath']) {
+        defineProperty(obj.target, '__proppath', {
+            value: joinPath(register(root), path.split('.').slice(0, -1).join('.'))
+        });
+        proppath = joinPath(register(root), path);
+    } else {
+        proppath = joinPath(obj.target['__proppath'], obj.property);
+    }
+
     var __kid = proppath + '#' + propKernelOrder(proppath);
     defineProperty(this, '__kid', {
         value: __kid
-    });
+    }, false);
     KernelStatus[this.__kid] = 1;
     if (PropKernelTable[proppath] === undefined) {
         PropKernelTable[proppath] = [];
@@ -724,7 +742,7 @@ function Data(root, refPath, value, ensurePathValid) {
     root = root || Store;
     var toSet = arguments.length >= 3 && value !== __;
     var v = root;
-    var proppath = fullpathOf(null, root);
+    // var proppath = fullpathOf(null, root);
     var paths = [];
     if (refPath) paths = refPath.split('.');
     var parent;
@@ -737,7 +755,7 @@ function Data(root, refPath, value, ensurePathValid) {
             return undefined;
         }
         prop = paths.shift();
-        proppath += (proppath === '' ? '' : '.') + prop;
+        // proppath += (proppath === '' ? '' : '.') + prop;
         if (toSet && paths.length === 0) { /* set */
             if (isInstance(v, OArray) &&
                 !(isObject(v[prop]) && isObject(value))) {

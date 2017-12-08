@@ -5,6 +5,10 @@ var gid = (function () {
     };
 })();
 
+var uid = function () {
+    return new Date().getTime() * 10000 + Math.floor(Math.random() * 10000);
+};
+
 var isBoolean = function (v) {
     return typeof v === 'boolean';
 };
@@ -387,6 +391,7 @@ function flatten(root, objectFilter, clean) {
 
 export {
     gid,
+    uid,
     isBoolean,
     isNumber,
     isNumeric,
