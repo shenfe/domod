@@ -707,7 +707,7 @@ function Kernel(root, path, relations) {
             get: function () {
                 if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
                     var v = ResultsFrom[proppath].f.apply(
-                        null,
+                        root,
                         ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
                     );
                     if (value !== v) {
@@ -934,7 +934,11 @@ function executeFunctionWithScope(expr, refs, target) {
     each(refs, function (r) {
         each(r, function (v, p) {
             if (p in ref) return;
-            ref[p] = v;
+            if (isFunction(v)) {
+                ref[p] = v.bind(target);
+            } else {
+                ref[p] = v;
+            }
         });
     });
 
@@ -1381,14 +1385,29 @@ function Bind($el, ref, ext) {
 
 /**
  * Constructor.
- * @param {*} $el 
- * @param {*} ref 
+ * @param {*} $el   [description]
+ * @param {*} ref   [description]
  */
 var DMD = function ($el, ref) {
     if (isString($el)) {
         $el = window.document.querySelector($el);
     }
-    Bind.call(this, $el, ref);
+    if (isString(ref) && arguments.length > 2) {
+        var html = ref;
+        ref = arguments[2];
+
+        var frag = document.createDocumentFragment();
+        var div = document.createElement('div');
+        div.innerHTML = html;
+
+        while (div.childNodes.length > 0) {
+            Bind.call(this, div.childNodes[0], ref);
+            frag.appendChild(div.childNodes[0]);
+        }
+        $el.appendChild(frag);
+    } else {
+        Bind.call(this, $el, ref);
+    }
 };
 
 DMD.kernel = Kernel;

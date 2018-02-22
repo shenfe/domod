@@ -59,7 +59,11 @@ function executeFunctionWithScope(expr, refs, target) {
     Util.each(refs, function (r) {
         Util.each(r, function (v, p) {
             if (p in ref) return;
-            ref[p] = v;
+            if (Util.isFunction(v)) {
+                ref[p] = v.bind(target);
+            } else {
+                ref[p] = v;
+            }
         });
     });
 

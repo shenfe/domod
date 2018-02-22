@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="../dist/domod.js" charset="utf-8"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        const state = {
+            count: 0,
+            increase() {
+                this.count++ // `this` points to `state`
+            }
+        }
+
+        DMD.relate(state, {
+            negative: {
+                resultFrom() {
+                    return this.count < 0 // `this` points to `state`
+                }
+            }
+        })
+
+        const view = `
+            <div>
+                <h1 m-style="{ color: $negative ? 'red' : 'green' }">{{$count}}</h1>
+                <button m-onclick="$count = $count - 1">-</button>
+                <button m-onclick="$increase()">+</button>
+            </div>
+        `
+
+        DMD('#app', view, state)
+    </script>
+</body>
+</html>

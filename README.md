@@ -9,11 +9,47 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
 
 *"domod" is named from "DOM", "Model" and their two-way relationship.*
 
+## Philosophy
+
+* Connection, relation, dependency. No matter it is data or dom, it is a tree. Tree and tree node relations make up graphs.
+* Reactive programming.
+
+## Simple Application
+
+A simple application:
+
+```js
+const state = {
+    count: 0,
+    increase() {
+        this.count++ // `this` points to `state`
+    }
+}
+
+DMD.relate(state, {
+    negative: {
+        resultFrom() {
+            return this.count < 0 // `this` points to `state`
+        }
+    }
+})
+
+const view = `
+    <div>
+        <h1 m-style="{ color: $negative ? 'red' : 'green' }">{{$count}}</h1>
+        <button m-onclick="$count = $count - 1">-</button>
+        <button m-onclick="$increase()">+</button>
+    </div>
+`
+
+DMD('#app', view, state)
+```
+
 ## API
 
 An online [demo](http://hengwu.me/repos/domod/domod3.html).
 
-An example of a simple form:
+An example of a form:
 
 ```html
 <script src="path/to/domod.js" charset="utf-8"></script>

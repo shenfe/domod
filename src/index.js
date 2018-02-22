@@ -220,14 +220,29 @@ function Unbind($el, ref, relation) {
 
 /**
  * Constructor.
- * @param {*} $el 
- * @param {*} ref 
+ * @param {*} $el   [description]
+ * @param {*} ref   [description]
  */
 var DMD = function ($el, ref) {
     if (Util.isString($el)) {
         $el = window.document.querySelector($el);
     }
-    Bind.call(this, $el, ref);
+    if (Util.isString(ref) && arguments.length > 2) {
+        var html = ref;
+        ref = arguments[2];
+
+        var frag = document.createDocumentFragment();
+        var div = document.createElement('div');
+        div.innerHTML = html;
+
+        while (div.childNodes.length > 0) {
+            Bind.call(this, div.childNodes[0], ref);
+            frag.appendChild(div.childNodes[0]);
+        }
+        $el.appendChild(frag);
+    } else {
+        Bind.call(this, $el, ref);
+    }
 };
 
 DMD.kernel = Kernel;

@@ -170,7 +170,7 @@ function Kernel(root, path, relations) {
             get: function () {
                 if (ResultsFrom[proppath] && KernelStatus[ResultsFrom[proppath].k] !== 0) {
                     var v = ResultsFrom[proppath].f.apply(
-                        null,
+                        root,
                         ResultsFrom[proppath].deps.map(function (p) { return Data(null, p); })
                     );
                     if (value !== v) {
