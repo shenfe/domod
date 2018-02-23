@@ -200,4 +200,6 @@ Also called OArray for short. See the [code](https://github.com/shenfe/domod/blo
 
 ## License
 
-MIT
+[MIT](http://opensource.org/licenses/MIT)
+
+Copyright © 2017-present, [shenfe](https://github.com/shenfe)
