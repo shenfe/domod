@@ -11,7 +11,7 @@ A lightweight data-binding (or so-called mvvm) library, providing both **declara
 
 ## Philosophy
 
-* Connection, relation, dependency. No matter it is data or dom, it is a tree. Tree and tree node relations make up graphs.
+* Connection, relation, dependency. Whether data or dom, it is a tree. Tree and tree node relations make up graphs.
 * Reactive programming.
 
 ## Simple Application
@@ -49,7 +49,7 @@ DMD('#app', view, state)
 
 An online [demo](http://hengwu.me/repos/domod/domod3.html).
 
-An example of a form:
+An more complex example of a form:
 
 ```html
 <script src="path/to/domod.js" charset="utf-8"></script>
