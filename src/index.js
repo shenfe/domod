@@ -12,13 +12,6 @@ var conf = {
     domListKey: '__dmd_key'
 };
 
-function pathContains(path, ref) {
-    Util.each(ref, function (p, k) {
-        if (path === k || path.startsWith(k + '.')) return k;
-    });
-    return null;
-}
-
 var domValueToBind = {
     'input': 'input',
     'select': 'change'
