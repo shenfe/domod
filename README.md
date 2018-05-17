@@ -49,7 +49,7 @@ DMD('#app', view, state)
 
 An online [demo](http://hengwu.me/repos/domod/domod3.html).
 
-An more complex example of a form:
+A more complex example of a form:
 
 ```html
 <script src="path/to/domod.js" charset="utf-8"></script>
