@@ -256,9 +256,12 @@ function OArray(arr, option) {
 }
 
 OArray.prototype = [];
-OArray.prototype.constructor = OArray;
 
-OArray.prototype.addEventListener = function (eventName, handler) {
+var __proto__ = OArray.prototype;
+
+__proto__.constructor = OArray;
+
+__proto__.on = __proto__.addEventListener = function (eventName, handler) {
     var _this = this;
     if (isObject(eventName)) {
         each(eventName, function (hdl, evt) {
@@ -269,9 +272,8 @@ OArray.prototype.addEventListener = function (eventName, handler) {
     if (!this['on' + eventName] || !isFunction(handler)) return;
     this['on' + eventName].push(handler);
 };
-OArray.prototype.on = OArray.prototype.addEventListener;
 
-OArray.prototype.removeEventListener = function (eventName, handler) {
+__proto__.off = __proto__.removeEventListener = function (eventName, handler) {
     var _this = this;
     if (isObject(eventName)) {
         each(eventName, function (hdl, evt) {
@@ -288,22 +290,20 @@ OArray.prototype.removeEventListener = function (eventName, handler) {
         }
     });
 };
-OArray.prototype.off = OArray.prototype.removeEventListener;
 
-OArray.prototype.dispatchEvent = function (eventName, args) {
+__proto__.trigger = __proto__.dispatchEvent = function (eventName, args) {
     args = Array.prototype.slice.call(arguments, 1);
     var _this = this;
     each(this['on' + eventName], function (handler) {
         handler.apply(_this, args);
     });
 };
-OArray.prototype.trigger = OArray.prototype.dispatchEvent;
 
-OArray.prototype.get = function (i) {
+__proto__.get = function (i) {
     return this.__data[i];
 };
 
-OArray.prototype.set = function (i, v) {
+__proto__.set = function (i, v) {
     var e = this.__data[i];
     if (isBasic(e) || isBasic(v)) {
         this.dispatchEvent('set', e, v, i, this.__data);
@@ -313,7 +313,7 @@ OArray.prototype.set = function (i, v) {
     }
 };
 
-OArray.prototype.assignElement = function (i) {
+__proto__.assignElement = function (i) {
     defineProperty(this, i, {
         get: function () {
             return this.get(i);
@@ -325,12 +325,12 @@ OArray.prototype.assignElement = function (i) {
         enumerable: true
     });
 };
-OArray.prototype.deleteElement = function () {
+__proto__.deleteElement = function () {
     if (this.hasOwnProperty(this.length - 1)) delete this[this.length - 1];
 };
 
 ['push', 'unshift'].forEach(function (f) {
-    OArray.prototype[f] = function (v) {
+    __proto__[f] = function (v) {
         this.__data[f](v);
         this.assignElement(this.length - 1);
         this.dispatchEvent(f, v);
@@ -338,7 +338,7 @@ OArray.prototype.deleteElement = function () {
     };
 });
 ['pop', 'shift'].forEach(function (f) {
-    OArray.prototype[f] = function () {
+    __proto__[f] = function () {
         this.dispatchEvent(f, this.__data[f === 'pop' ? (this.length - 1) : 0]);
         this.deleteElement();
         this.__data[f]();
@@ -346,11 +346,11 @@ OArray.prototype.deleteElement = function () {
     };
 });
 
-OArray.prototype.toArray = function (notClone) {
+__proto__.toArray = function (notClone) {
     return notClone ? this.__data : clone(this.__data);
 };
 
-OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
+__proto__.splice = function (startIndex, howManyToDelete, itemToInsert) {
     if (!isNumber(startIndex) || startIndex < 0) startIndex = 0;
     if (startIndex >= this.length) startIndex = this.length;
     if (!isNumber(howManyToDelete) || howManyToDelete < 0) howManyToDelete = 0;
@@ -383,7 +383,7 @@ OArray.prototype.splice = function (startIndex, howManyToDelete, itemToInsert) {
     this.dispatchEvent('resize');
 };
 
-OArray.prototype.forEach = function (fn) {
+__proto__.forEach = function (fn) {
     for (var i = 0; i < this.length; i++) {
         var r = fn(this.get(i), i);
         if (r === false) break;
@@ -391,7 +391,7 @@ OArray.prototype.forEach = function (fn) {
 };
 
 ['reverse', 'sort'].forEach(function (f) {
-    OArray.prototype[f] = function () {
+    __proto__[f] = function () {
         var r = clone(this.__data);
         Array.prototype[f].apply(r, arguments);
         for (var i = 0; i < this.length; i++) {
@@ -402,19 +402,19 @@ OArray.prototype.forEach = function (fn) {
 
 ['slice', 'concat', 'filter', 'map', 'reduce',
     'indexOf', 'find', 'findIndex', 'fill', 'join'].forEach(function (f) {
-    OArray.prototype[f] = function () {
+    __proto__[f] = function () {
         return Array.prototype[f].apply(this.toArray(), arguments);
     };
 });
 
-OArray.prototype.clear = function () {
+__proto__.clear = function () {
     while (this.length) {
         this.pop();
     }
     return this;
 };
 
-OArray.prototype.cast = function (arr) {
+__proto__.cast = function (arr) {
     return this.splice.apply(this, [0, this.length].concat(arr));
 };
 
